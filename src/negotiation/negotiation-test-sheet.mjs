@@ -60,6 +60,15 @@ export class NegotiationTestSheet extends ItemSheetV1 {
   async getData(options = {}) {
     const data = super.getData(options);
 
+    // Migrate: participants created by old code can have blank IDs. Fix once, fire-and-forget.
+    if (game.user.isGM) {
+      const rawParticipants = this.item.system?.participants ?? [];
+      if (rawParticipants.some((p) => !p?.id)) {
+        const fixed = rawParticipants.map((p) => ({ ...p, id: p.id || foundry.utils.randomID() }));
+        this.item.update({ "system.participants": fixed }); // re-render happens automatically
+      }
+    }
+
     const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
 
     const viewState = redactForViewer(this.item.system, { isGM: game.user.isGM });
