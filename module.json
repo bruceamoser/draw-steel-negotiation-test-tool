@@ -2,7 +2,7 @@
   "id": "draw-steel-negotiation",
   "title": "Draw Steel - Negotiation Test Tool",
   "description": "Run, track, and resolve Negotiation tests for the Draw Steel RPG system in Foundry VTT.",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "compatibility": {
     "minimum": "13",
     "verified": "13.351"
