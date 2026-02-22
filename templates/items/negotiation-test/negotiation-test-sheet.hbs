@@ -65,13 +65,15 @@
 
       {{#if isGM}}
       <div class="neg-section neg-toolbar">
-        <span class="neg-hint">Drag an Actor onto this sheet to add them as a participant, or add a placeholder NPC.</span>
+        <span class="neg-hint">Drag an Actor here, or use the buttons to add a placeholder. Only one NPC is allowed.</span>
         <div class="neg-toolbar-actions">
+          <button type="button" class="neg-btn" data-action="addPcNoActor">
+            <i class="fa-solid fa-plus"></i> Add PC
+          </button>
           <button type="button" class="neg-btn" data-action="addNpcNoActor">
-            <i class="fa-solid fa-plus"></i> Add NPC (no actor)
+            <i class="fa-solid fa-plus"></i> Add NPC
           </button>
         </div>
-        <span class="neg-warn">Only one NPC is allowed per negotiation.</span>
       </div>
       {{/if}}
 
@@ -91,6 +93,9 @@
             {{#each participants}}
             <tr>
               <td>
+                <input type="hidden"
+                  name="system.participants.{{this.index}}.id"
+                  value="{{this.id}}" />
                 <input type="text"
                   name="system.participants.{{this.index}}.displayName"
                   value="{{this.displayName}}"

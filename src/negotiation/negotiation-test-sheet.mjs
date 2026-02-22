@@ -160,7 +160,7 @@ export class NegotiationTestSheet extends ItemSheetV1 {
 
   activateListeners(html) {
     super.activateListeners(html);
-    html.find(".neg-action").on("click", this.#onAction.bind(this));
+    html.find("button[data-action]").on("click", this.#onAction.bind(this));
 
     // Enforce the single-NPC constraint in the Participants tab.
     html.find(".neg-participant-kind").on("change", (ev) => {
@@ -234,6 +234,8 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     switch (action) {
       case "addNpcNoActor":
         return this.#addNpcNoActor();
+      case "addPcNoActor":
+        return this.#addPcNoActor();
       case "removeParticipant":
         return this.#removeParticipant(event.currentTarget.dataset.participantId);
       case "startNegotiation":
@@ -269,6 +271,17 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     const updated = addParticipant(this.item.system, {
       displayName: "NPC",
       kind: "npc",
+      role: "",
+      isActive: true,
+    }, rules, { idFn: () => foundry.utils.randomID() });
+    await this.item.update({ system: updated });
+  }
+
+  async #addPcNoActor() {
+    const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
+    const updated = addParticipant(this.item.system, {
+      displayName: "PC",
+      kind: "pc",
       role: "",
       isActive: true,
     }, rules, { idFn: () => foundry.utils.randomID() });
