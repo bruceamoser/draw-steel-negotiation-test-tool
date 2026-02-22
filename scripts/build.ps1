@@ -30,6 +30,11 @@ $zipVersionedPath = Join-Path $outDirPath ("{0}-v{1}.zip" -f $moduleId, $version
 $zipStablePath = Join-Path $outDirPath ("{0}.zip" -f $moduleId)
 $releaseManifestPath = Join-Path $outDirPath "module.json"
 
+# Build a release-ready manifest (module.json) that Foundry can use for installs and updates.
+$release = ($module | ConvertTo-Json -Depth 20) | ConvertFrom-Json
+$release | Add-Member -NotePropertyName manifest -NotePropertyValue "$repoUrl/releases/latest/download/module.json" -Force
+$release | Add-Member -NotePropertyName download -NotePropertyValue "$repoUrl/releases/download/v$version/$moduleId.zip" -Force
+
 if ($Clean) {
   if (Test-Path $outDirPath) {
     Remove-Item -Recurse -Force -Path $outDirPath
@@ -53,6 +58,13 @@ foreach ($rel in $include) {
   if (!(Test-Path $src)) { continue }
 
   $dst = Join-Path $stageDir $rel
+
+  # Special-case: stage the release-ready manifest instead of the repo's module.json.
+  if ($rel -eq "module.json") {
+    Set-Content -Path $dst -Value ($release | ConvertTo-Json -Depth 20) -Encoding UTF8
+    continue
+  }
+
   if (Test-Path $src -PathType Container) {
     Copy-Item -Recurse -Force -Path $src -Destination $dst
   } else {
@@ -79,9 +91,6 @@ Copy-Item -Force -Path $zipStablePath -Destination $zipVersionedPath
 
 # Emit a release-ready module.json (manifest) at dist/module.json.
 # Foundry expects this URL to exist, and expects the JSON to include `manifest` and `download`.
-$release = ($module | ConvertTo-Json -Depth 20) | ConvertFrom-Json
-$release | Add-Member -NotePropertyName manifest -NotePropertyValue "$repoUrl/releases/latest/download/module.json" -Force
-$release | Add-Member -NotePropertyName download -NotePropertyValue "$repoUrl/releases/download/v$version/$moduleId.zip" -Force
 Set-Content -Path $releaseManifestPath -Value ($release | ConvertTo-Json -Depth 20) -Encoding UTF8
 
 Write-Host "Built: $zipStablePath"
