@@ -61,7 +61,7 @@ foreach ($rel in $include) {
 
   # Special-case: stage the release-ready manifest instead of the repo's module.json.
   if ($rel -eq "module.json") {
-    Set-Content -Path $dst -Value ($release | ConvertTo-Json -Depth 20) -Encoding UTF8
+    [System.IO.File]::WriteAllText($dst, ($release | ConvertTo-Json -Depth 20), [System.Text.UTF8Encoding]::new($false))
     continue
   }
 
@@ -91,7 +91,7 @@ Copy-Item -Force -Path $zipStablePath -Destination $zipVersionedPath
 
 # Emit a release-ready module.json (manifest) at dist/module.json.
 # Foundry expects this URL to exist, and expects the JSON to include `manifest` and `download`.
-Set-Content -Path $releaseManifestPath -Value ($release | ConvertTo-Json -Depth 20) -Encoding UTF8
+[System.IO.File]::WriteAllText($releaseManifestPath, ($release | ConvertTo-Json -Depth 20), [System.Text.UTF8Encoding]::new($false))
 
 Write-Host "Built: $zipStablePath"
 Write-Host "Built: $zipVersionedPath"
