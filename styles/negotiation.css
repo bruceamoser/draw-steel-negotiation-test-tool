@@ -1,0 +1,83 @@
+/* ==========================================================================
+   Draw Steel Negotiation Test Tool — Styles
+   Minimal, namespaced styling for ItemSheetV1.
+   ========================================================================== */
+
+.negotiation-app .window-content {
+  padding: 8px 12px;
+}
+
+.negotiation-sheet .tabs {
+  margin-bottom: 8px;
+}
+
+.negotiation-sheet .neg-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.negotiation-sheet .neg-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.negotiation-sheet .neg-card {
+  border: 1px solid var(--color-border-light-2);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.negotiation-sheet .neg-muted {
+  opacity: 0.85;
+}
+
+.negotiation-sheet .neg-small {
+  font-size: 12px;
+}
+
+.negotiation-sheet .neg-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.negotiation-sheet .neg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.negotiation-sheet .neg-list-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.negotiation-sheet .neg-list-item input[type="text"] {
+  flex: 1;
+}
+
+.negotiation-sheet .neg-timeline-segment {
+  margin-bottom: 12px;
+}
+
+.negotiation-sheet .neg-entry {
+  border: 1px dashed var(--color-border-light-2);
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-top: 6px;
+}
+
+.negotiation-chat-card {
+  border: 1px solid var(--color-border-light-2);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.negotiation-chat-card .neg-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+}

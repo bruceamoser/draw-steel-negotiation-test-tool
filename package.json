@@ -1,0 +1,8 @@
+{
+  "name": "draw-steel-negotiation-test-tool",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}

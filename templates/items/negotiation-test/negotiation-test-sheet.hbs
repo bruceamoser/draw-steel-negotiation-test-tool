@@ -1,0 +1,553 @@
+<form class="negotiation-app negotiation-sheet" autocomplete="off">
+  <header class="sheet-header">
+    <div class="neg-row">
+      <label class="neg-muted">{{localize "NEGOTIATION.Fields.Title"}}</label>
+      <input type="text" name="system.title" value="{{system.title}}" placeholder="{{item.name}}" />
+    </div>
+  </header>
+
+  <nav class="tabs" data-group="primary">
+    <a class="item" data-tab="overview">{{localize "NEGOTIATION.Tabs.Overview"}}</a>
+    <a class="item" data-tab="participants">{{localize "NEGOTIATION.Tabs.Participants"}}</a>
+    <a class="item" data-tab="npc">{{localize "NEGOTIATION.Tabs.NpcProfile"}}</a>
+    <a class="item" data-tab="timeline">{{localize "NEGOTIATION.Tabs.Timeline"}}</a>
+    <a class="item" data-tab="result">{{localize "NEGOTIATION.Tabs.Result"}}</a>
+    <a class="item" data-tab="settings">{{localize "NEGOTIATION.Tabs.Settings"}}</a>
+  </nav>
+
+  <section class="tab-content">
+    {{!-- ==========================================================
+         Overview
+         ========================================================== --}}
+    <div class="tab" data-group="primary" data-tab="overview">
+      <div class="neg-grid">
+        <div class="neg-card">
+          <div class="neg-row">
+            <strong>{{localize "NEGOTIATION.Fields.Status"}}:</strong>
+            <span>{{statusLabel}}</span>
+            {{#if currentSegmentLabel}}
+            <span class="neg-muted">({{currentSegmentLabel}})</span>
+            {{/if}}
+          </div>
+
+          <hr />
+
+          <div class="neg-row">
+            <strong>{{localize "NEGOTIATION.Fields.Stakes"}}</strong>
+          </div>
+          <div class="form-group">
+            <label>{{localize "NEGOTIATION.Fields.Success"}}</label>
+            <textarea name="system.setup.stakes.success">{{system.setup.stakes.success}}</textarea>
+          </div>
+          <div class="form-group">
+            <label>{{localize "NEGOTIATION.Fields.Failure"}}</label>
+            <textarea name="system.setup.stakes.failure">{{system.setup.stakes.failure}}</textarea>
+          </div>
+          <div class="form-group">
+            <label>{{localize "NEGOTIATION.Fields.ContextPublic"}}</label>
+            <textarea name="system.setup.contextPublic">{{system.setup.contextPublic}}</textarea>
+          </div>
+          {{#if isGM}}
+          <div class="form-group">
+            <label>{{localize "NEGOTIATION.Fields.ContextGM"}}</label>
+            <textarea name="system.setup.contextGM">{{system.setup.contextGM}}</textarea>
+          </div>
+          {{/if}}
+        </div>
+
+        <div class="neg-card">
+          <div class="neg-row">
+            <strong>{{localize "NEGOTIATION.Fields.Participants"}}</strong>
+          </div>
+          <div class="neg-list">
+            {{#each npcSummaries}}
+            <div class="neg-list-item">
+              <strong>{{this.name}}</strong>
+              {{#if this.interestDisplay}}
+              <span>{{localize "NEGOTIATION.Fields.Interest"}}: {{this.interestDisplay}}</span>
+              {{/if}}
+              {{#if this.patienceDisplay}}
+              <span>{{localize "NEGOTIATION.Fields.Patience"}}: {{this.patienceDisplay}}</span>
+              {{/if}}
+              {{#if this.offerLabel}}
+              <span class="neg-muted">— {{this.offerLabel}}</span>
+              {{/if}}
+            </div>
+            {{/each}}
+            {{#unless npcSummaries.length}}
+            <div class="neg-muted">{{localize "NEGOTIATION.Notify.NeedNPC"}}</div>
+            {{/unless}}
+          </div>
+
+          <hr />
+
+          <div class="neg-actions">
+            {{#if isGM}}
+            <button type="button" class="neg-action" data-action="startNegotiation">
+              <i class="fa-solid fa-play"></i> {{localize "NEGOTIATION.Actions.Start"}}
+            </button>
+            <button type="button" class="neg-action" data-action="advanceStructure">
+              <i class="fa-solid fa-forward"></i> {{localize "NEGOTIATION.Actions.Next"}}
+            </button>
+            <button type="button" class="neg-action" data-action="resolveNegotiation">
+              <i class="fa-solid fa-flag-checkered"></i> {{localize "NEGOTIATION.Actions.Resolve"}}
+            </button>
+            <button type="button" class="neg-action" data-action="postSummary">
+              <i class="fa-solid fa-comment"></i> {{localize "NEGOTIATION.Actions.PostSummary"}}
+            </button>
+            {{/if}}
+            <button type="button" class="neg-action" data-action="copySummary">
+              <i class="fa-solid fa-copy"></i> {{localize "NEGOTIATION.Actions.CopySummary"}}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {{!-- ==========================================================
+         Participants
+         ========================================================== --}}
+    <div class="tab" data-group="primary" data-tab="participants">
+      {{#if isGM}}
+      <div class="neg-card">
+        <p class="neg-muted neg-small">Drag & drop Actors onto this sheet to add as participants.</p>
+        <button type="button" class="neg-action" data-action="addNpcNoActor">
+          <i class="fa-solid fa-plus"></i> {{localize "NEGOTIATION.Actions.AddNpc"}}
+        </button>
+      </div>
+      {{/if}}
+
+      <div class="neg-card">
+        <div class="neg-list">
+          {{#each participants}}
+          <div class="neg-list-item">
+            <input type="text" name="system.participants.{{this.index}}.displayName" value="{{this.displayName}}" {{#unless ../isGM}}disabled{{/unless}} />
+            <select name="system.participants.{{this.index}}.kind" {{#unless ../isGM}}disabled{{/unless}}>
+              <option value="pc" {{#if (eq this.kind "pc")}}selected{{/if}}>PC</option>
+              <option value="npc" {{#if (eq this.kind "npc")}}selected{{/if}}>NPC</option>
+            </select>
+            <input type="text" name="system.participants.{{this.index}}.role" value="{{this.role}}" placeholder="{{localize 'NEGOTIATION.Fields.Role'}}" {{#unless ../isGM}}disabled{{/unless}} />
+            <label class="neg-small"><input type="checkbox" name="system.participants.{{this.index}}.isActive" {{#if this.isActive}}checked{{/if}} {{#unless ../isGM}}disabled{{/unless}} /> {{localize "NEGOTIATION.Fields.Active"}}</label>
+            {{#if ../isGM}}
+            <button type="button" class="neg-action" data-action="removeParticipant" data-participant-id="{{this.id}}">
+              <i class="fa-solid fa-trash"></i> {{localize "NEGOTIATION.Actions.Remove"}}
+            </button>
+            {{/if}}
+          </div>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+
+    {{!-- ==========================================================
+         NPC Profile
+         ========================================================== --}}
+    <div class="tab" data-group="primary" data-tab="npc">
+      {{#if selectedNpc}}
+      <div class="neg-grid">
+        <div class="neg-card">
+          <div class="neg-row">
+            <strong>NPC:</strong>
+            <select name="neg-selected-npc" {{#unless isGM}}disabled{{/unless}}>
+              {{#each npcOptions}}
+              <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+              {{/each}}
+            </select>
+          </div>
+
+          <hr />
+
+          {{#if isGM}}
+          <div class="neg-row">
+            <label>{{localize "NEGOTIATION.Fields.Interest"}}</label>
+            <input type="number" name="system.npcStateByParticipantId.{{selectedNpc.id}}.interest.value" value="{{selectedNpc.interest.value}}" min="{{selectedNpc.interest.min}}" max="{{selectedNpc.interest.max}}" />
+            <span class="neg-muted neg-small">({{selectedNpc.interest.min}}–{{selectedNpc.interest.max}})</span>
+          </div>
+          <div class="neg-row">
+            <label>{{localize "NEGOTIATION.Fields.Patience"}}</label>
+            <input type="number" name="system.npcStateByParticipantId.{{selectedNpc.id}}.patience.value" value="{{selectedNpc.patience.value}}" min="{{selectedNpc.patience.min}}" max="{{selectedNpc.patience.max}}" />
+            <span class="neg-muted neg-small">({{selectedNpc.patience.min}}–{{selectedNpc.patience.max}})</span>
+          </div>
+
+          {{#if selectedNpc.hasParticipantIndex}}
+          <div class="form-group">
+            <label>{{localize "NEGOTIATION.Fields.NotesGM"}}</label>
+            <textarea name="system.participants.{{selectedNpc.participantIndex}}.notesGM">{{selectedNpc.participantNotesGM}}</textarea>
+          </div>
+          {{/if}}
+          {{/if}}
+        </div>
+
+        <div class="neg-card">
+          <div class="neg-row"><strong>{{localize "NEGOTIATION.Fields.Motivations"}}</strong></div>
+          <div class="neg-list">
+            {{#each selectedNpc.motivations}}
+            <div class="neg-list-item">
+              <span>{{this.label}}</span>
+              {{#if ../isGM}}
+              <label class="neg-small"><input type="checkbox" name="system.npcStateByParticipantId.{{../selectedNpc.id}}.motivations.{{@index}}.isRevealed" {{#if this.isRevealed}}checked{{/if}} /> {{localize "NEGOTIATION.Fields.Revealed"}}</label>
+              <button type="button" class="neg-action" data-action="removeNpcMotivation" data-index="{{@index}}">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+              {{/if}}
+            </div>
+            {{/each}}
+          </div>
+          {{#if isGM}}
+          <div class="neg-row">
+            <select name="neg-add-motivation">
+              {{#each motivationOptions}}
+              <option value="{{this.id}}">{{this.label}}</option>
+              {{/each}}
+            </select>
+            <button type="button" class="neg-action" data-action="addNpcMotivation">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+          </div>
+          {{/if}}
+          <hr />
+          <div class="neg-row"><strong>{{localize "NEGOTIATION.Fields.Pitfalls"}}</strong></div>
+          <div class="neg-list">
+            {{#each selectedNpc.pitfalls}}
+            <div class="neg-list-item">
+              <span>{{this.label}}</span>
+              {{#if ../isGM}}
+              <label class="neg-small"><input type="checkbox" name="system.npcStateByParticipantId.{{../selectedNpc.id}}.pitfalls.{{@index}}.isRevealed" {{#if this.isRevealed}}checked{{/if}} /> {{localize "NEGOTIATION.Fields.Revealed"}}</label>
+              <button type="button" class="neg-action" data-action="removeNpcPitfall" data-index="{{@index}}">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+              {{/if}}
+            </div>
+            {{/each}}
+          </div>
+          {{#if isGM}}
+          <div class="neg-row">
+            <select name="neg-add-pitfall">
+              {{#each pitfallOptions}}
+              <option value="{{this.id}}">{{this.label}}</option>
+              {{/each}}
+            </select>
+            <button type="button" class="neg-action" data-action="addNpcPitfall">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+          </div>
+          {{/if}}
+        </div>
+      </div>
+      {{else}}
+      <div class="neg-card neg-muted">{{localize "NEGOTIATION.Notify.NeedNPC"}}</div>
+      {{/if}}
+    </div>
+
+    {{!-- ==========================================================
+         Timeline
+         ========================================================== --}}
+    <div class="tab" data-group="primary" data-tab="timeline">
+      {{#if isGM}}
+      <div class="neg-card">
+        <div class="neg-row">
+          <strong>{{localize "NEGOTIATION.Actions.AddArgument"}}</strong>
+        </div>
+
+        <div class="neg-grid">
+          <div>
+            <div class="form-group">
+              <label>Actor (PC)</label>
+              <select name="neg-arg-actor">
+                {{#each pcOptions}}
+                <option value="{{this.id}}">{{this.label}}</option>
+                {{/each}}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Target (NPC)</label>
+              <select name="neg-arg-target">
+                {{#each npcOptions}}
+                <option value="{{this.id}}">{{this.label}}</option>
+                {{/each}}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Argument Type</label>
+              <select name="neg-arg-type">
+                {{#each argumentTypeOptions}}
+                <option value="{{this.id}}">{{this.label}}</option>
+                {{/each}}
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>{{localize "NEGOTIATION.Fields.Motivations"}} (optional)</label>
+              <select name="neg-arg-motivation">
+                <option value="">—</option>
+                {{#each motivationOptions}}
+                <option value="{{this.id}}">{{this.label}}</option>
+                {{/each}}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>{{localize "NEGOTIATION.Fields.Pitfalls"}} (optional)</label>
+              <select name="neg-arg-pitfall">
+                <option value="">—</option>
+                {{#each pitfallOptions}}
+                <option value="{{this.id}}">{{this.label}}</option>
+                {{/each}}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>{{localize "NEGOTIATION.Fields.Summary"}}</label>
+              <input type="text" name="neg-arg-summary" placeholder="Short public summary" />
+            </div>
+            <div class="form-group">
+              <label>{{localize "NEGOTIATION.Fields.DetailsGM"}}</label>
+              <textarea name="neg-arg-details"></textarea>
+            </div>
+          </div>
+          <div>
+            <div class="form-group">
+              <label>{{localize "NEGOTIATION.Fields.Roll"}}</label>
+              <select name="neg-roll-mode">
+                <option value="none">{{localize "NEGOTIATION.RollMode.None"}}</option>
+                <option value="manualTotal">{{localize "NEGOTIATION.RollMode.ManualTotal"}}</option>
+                <option value="foundryRoll">{{localize "NEGOTIATION.RollMode.FoundryRoll"}}</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Formula</label>
+              <input type="text" name="neg-roll-formula" placeholder="e.g. 2d10+Presence" />
+            </div>
+            <div class="form-group">
+              <label>Total</label>
+              <input type="number" name="neg-roll-total" />
+            </div>
+
+            <div class="neg-row">
+              <label class="neg-small"><input type="checkbox" name="neg-roll-visible" checked /> Roll visible to players</label>
+            </div>
+            <div class="neg-row">
+              <label class="neg-small"><input type="checkbox" name="neg-entry-reveal" /> Reveal entry to players</label>
+            </div>
+            <div class="neg-row">
+              <label class="neg-small"><input type="checkbox" name="neg-post-chat" /> {{localize "NEGOTIATION.Actions.PostToChat"}}</label>
+            </div>
+
+            <div class="neg-muted neg-small neg-arg-preview"></div>
+            <hr />
+            <button type="button" class="neg-action" data-action="addArgumentEntry">
+              <i class="fa-solid fa-plus"></i> {{localize "NEGOTIATION.Actions.AddArgument"}}
+            </button>
+          </div>
+        </div>
+
+        <hr />
+        <div class="neg-row">
+          <strong>{{localize "NEGOTIATION.Actions.AddReveal"}}</strong>
+          <span class="neg-muted neg-small">(Discovery test)</span>
+        </div>
+        <div class="neg-grid">
+          <div>
+            <div class="form-group">
+              <label>Actor (PC)</label>
+              <select name="neg-disc-actor">
+                {{#each pcOptions}}
+                <option value="{{this.id}}">{{this.label}}</option>
+                {{/each}}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Target (NPC)</label>
+              <select name="neg-disc-target">
+                {{#each npcOptions}}
+                <option value="{{this.id}}">{{this.label}}</option>
+                {{/each}}
+              </select>
+            </div>
+            <div class="neg-row">
+              <label class="neg-small"><input type="checkbox" name="neg-disc-entry-reveal" /> Reveal discovered detail to players</label>
+            </div>
+          </div>
+          <div>
+            <div class="form-group">
+              <label>{{localize "NEGOTIATION.Fields.Roll"}}</label>
+              <select name="neg-disc-roll-mode">
+                <option value="none">{{localize "NEGOTIATION.RollMode.None"}}</option>
+                <option value="manualTotal">{{localize "NEGOTIATION.RollMode.ManualTotal"}}</option>
+                <option value="foundryRoll">{{localize "NEGOTIATION.RollMode.FoundryRoll"}}</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Formula</label>
+              <input type="text" name="neg-disc-roll-formula" placeholder="e.g. 2d10+Presence" />
+            </div>
+            <div class="form-group">
+              <label>Total</label>
+              <input type="number" name="neg-disc-roll-total" />
+            </div>
+            <div class="neg-row">
+              <label class="neg-small"><input type="checkbox" name="neg-disc-roll-visible" checked /> Roll visible to players</label>
+            </div>
+            <button type="button" class="neg-action" data-action="addDiscoveryEntry">
+              <i class="fa-solid fa-plus"></i> {{localize "NEGOTIATION.Actions.AddReveal"}}
+            </button>
+          </div>
+        </div>
+
+        <hr />
+        <div class="neg-row">
+          <strong>{{localize "NEGOTIATION.Actions.AddNote"}}</strong>
+        </div>
+        <div class="form-group">
+          <label>{{localize "NEGOTIATION.Fields.Summary"}}</label>
+          <input type="text" name="neg-note-summary" placeholder="Short public note" />
+        </div>
+        <div class="form-group">
+          <label>{{localize "NEGOTIATION.Fields.DetailsGM"}}</label>
+          <textarea name="neg-note-details"></textarea>
+        </div>
+        <div class="neg-row">
+          <label class="neg-small"><input type="checkbox" name="neg-note-reveal" /> Reveal entry to players</label>
+        </div>
+        <button type="button" class="neg-action" data-action="addNoteEntry">
+          <i class="fa-solid fa-plus"></i> {{localize "NEGOTIATION.Actions.AddNote"}}
+        </button>
+
+        <hr />
+        <div class="neg-row">
+          <strong>{{localize "NEGOTIATION.Actions.AddAdjustment"}}</strong>
+        </div>
+        <div class="neg-grid">
+          <div>
+            <div class="form-group">
+              <label>Target (NPC)</label>
+              <select name="neg-adj-target">
+                {{#each npcOptions}}
+                <option value="{{this.id}}">{{this.label}}</option>
+                {{/each}}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Interest Δ</label>
+              <input type="number" name="neg-adj-interest" value="0" />
+            </div>
+            <div class="form-group">
+              <label>Patience Δ</label>
+              <input type="number" name="neg-adj-patience" value="0" />
+            </div>
+          </div>
+          <div>
+            <div class="form-group">
+              <label>{{localize "NEGOTIATION.Fields.Summary"}}</label>
+              <input type="text" name="neg-adj-summary" placeholder="Reason" />
+            </div>
+            <div class="neg-row">
+              <label class="neg-small"><input type="checkbox" name="neg-adj-reveal" /> Reveal entry to players</label>
+            </div>
+            <button type="button" class="neg-action" data-action="addAdjustmentEntry">
+              <i class="fa-solid fa-plus"></i> {{localize "NEGOTIATION.Actions.AddAdjustment"}}
+            </button>
+          </div>
+        </div>
+      </div>
+      {{/if}}
+
+      {{#each timeline}}
+      <div class="neg-timeline-segment">
+        <h3>{{this.label}}</h3>
+        {{#each this.entries}}
+        <div class="neg-entry">
+          <div class="neg-row">
+            <strong>{{this.actorName}}</strong>
+            <span class="neg-muted">→</span>
+            <strong>{{this.targetName}}</strong>
+            <span class="neg-muted">({{this.entryType}})</span>
+            {{#if this.rollTier}}
+            <span class="neg-muted">— {{localize "NEGOTIATION.Fields.Tier"}} {{this.rollTier}}</span>
+            {{/if}}
+          </div>
+          {{#if this.summary}}
+          <div>{{this.summary}}</div>
+          {{/if}}
+          {{#if this.effectsText}}
+          <div class="neg-muted neg-small">{{this.effectsText}}</div>
+          {{/if}}
+        </div>
+        {{/each}}
+      </div>
+      {{/each}}
+    </div>
+
+    {{!-- ==========================================================
+         Result
+         ========================================================== --}}
+    <div class="tab" data-group="primary" data-tab="result">
+      <div class="neg-card">
+        <div class="neg-row">
+          <strong>{{localize "NEGOTIATION.Fields.Outcome"}}:</strong>
+          <span>{{outcomeLabel}}</span>
+        </div>
+        <div class="form-group">
+          <label>{{localize "NEGOTIATION.Fields.SummaryPublic"}}</label>
+          <textarea name="system.resolution.summaryPublic">{{system.resolution.summaryPublic}}</textarea>
+        </div>
+        {{#if isGM}}
+        <div class="form-group">
+          <label>{{localize "NEGOTIATION.Fields.SummaryGM"}}</label>
+          <textarea name="system.resolution.summaryGM">{{system.resolution.summaryGM}}</textarea>
+        </div>
+        {{/if}}
+      </div>
+    </div>
+
+    {{!-- ==========================================================
+         Settings
+         ========================================================== --}}
+    <div class="tab" data-group="primary" data-tab="settings">
+      <div class="neg-card">
+        <div class="form-group">
+          <label>Rules profile</label>
+          <input type="text" name="system.setup.rulesProfileId" value="{{system.setup.rulesProfileId}}" {{#unless isGM}}disabled{{/unless}} />
+        </div>
+
+        <div class="form-group">
+          <label>Structure</label>
+          <select name="system.setup.structure.kind" {{#unless isGM}}disabled{{/unless}}>
+            <option value="freeform" {{#if (eq system.setup.structure.kind "freeform")}}selected{{/if}}>Freeform</option>
+            <option value="rounds" {{#if (eq system.setup.structure.kind "rounds")}}selected{{/if}}>Rounds</option>
+            <option value="stages" {{#if (eq system.setup.structure.kind "stages")}}selected{{/if}}>Stages</option>
+          </select>
+        </div>
+
+        <hr />
+        <h3>{{localize "NEGOTIATION.Visibility.Title"}}</h3>
+        <div class="form-group">
+          <label><input type="checkbox" name="system.setup.visibility.showNpcNames" {{#if system.setup.visibility.showNpcNames}}checked{{/if}} {{#unless isGM}}disabled{{/unless}} /> {{localize "NEGOTIATION.Visibility.ShowNpcNames"}}</label>
+        </div>
+        <div class="form-group">
+          <label>{{localize "NEGOTIATION.Visibility.ShowInterest"}}</label>
+          <select name="system.setup.visibility.showInterest" {{#unless isGM}}disabled{{/unless}}>
+            <option value="hidden" {{#if (eq system.setup.visibility.showInterest "hidden")}}selected{{/if}}>{{localize "NEGOTIATION.Visibility.Hidden"}}</option>
+            <option value="value" {{#if (eq system.setup.visibility.showInterest "value")}}selected{{/if}}>{{localize "NEGOTIATION.Visibility.Value"}}</option>
+            <option value="range" {{#if (eq system.setup.visibility.showInterest "range")}}selected{{/if}}>{{localize "NEGOTIATION.Visibility.Range"}}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>{{localize "NEGOTIATION.Visibility.ShowPatience"}}</label>
+          <select name="system.setup.visibility.showPatience" {{#unless isGM}}disabled{{/unless}}>
+            <option value="hidden" {{#if (eq system.setup.visibility.showPatience "hidden")}}selected{{/if}}>{{localize "NEGOTIATION.Visibility.Hidden"}}</option>
+            <option value="value" {{#if (eq system.setup.visibility.showPatience "value")}}selected{{/if}}>{{localize "NEGOTIATION.Visibility.Value"}}</option>
+            <option value="range" {{#if (eq system.setup.visibility.showPatience "range")}}selected{{/if}}>{{localize "NEGOTIATION.Visibility.Range"}}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" name="system.setup.visibility.showArgumentDetails" {{#if system.setup.visibility.showArgumentDetails}}checked{{/if}} {{#unless isGM}}disabled{{/unless}} /> {{localize "NEGOTIATION.Visibility.ShowArgumentDetails"}}</label>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" name="system.setup.visibility.showRollTotals" {{#if system.setup.visibility.showRollTotals}}checked{{/if}} {{#unless isGM}}disabled{{/unless}} /> {{localize "NEGOTIATION.Visibility.ShowRollTotals"}}</label>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" name="system.setup.allowEditingPreviousEntries" {{#if system.setup.allowEditingPreviousEntries}}checked{{/if}} {{#unless isGM}}disabled{{/unless}} /> Allow editing previous entries</label>
+        </div>
+      </div>
+    </div>
+  </section>
+</form>

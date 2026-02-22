@@ -1,0 +1,88 @@
+{
+  "NEGOTIATION": {
+    "Item": {
+      "NegotiationTest": "Negotiation Test",
+      "DefaultName": "Negotiation"
+    },
+    "Tabs": {
+      "Overview": "Overview",
+      "Participants": "Participants",
+      "NpcProfile": "NPC Profile",
+      "Timeline": "Arguments / Timeline",
+      "Result": "Result",
+      "Settings": "Settings"
+    },
+    "Fields": {
+      "Title": "Title",
+      "Status": "Status",
+      "Stakes": "Stakes",
+      "Success": "Success",
+      "Failure": "Failure",
+      "ContextPublic": "Public Context",
+      "ContextGM": "GM Context",
+      "Participants": "Participants",
+      "Role": "Role",
+      "Active": "Active",
+      "Kind": "Kind",
+      "Interest": "Interest",
+      "Patience": "Patience",
+      "Motivations": "Motivations",
+      "Pitfalls": "Pitfalls",
+      "Revealed": "Revealed",
+      "NotesGM": "GM Notes",
+      "Argument": "Argument",
+      "Summary": "Summary",
+      "DetailsGM": "GM Details",
+      "Roll": "Roll",
+      "Tier": "Tier",
+      "Effects": "Effects",
+      "Outcome": "Outcome",
+      "SummaryPublic": "Public Summary",
+      "SummaryGM": "GM Summary"
+    },
+    "Actions": {
+      "Start": "Start",
+      "Next": "Next",
+      "Resolve": "Resolve",
+      "PostSummary": "Post Summary",
+      "CopySummary": "Copy Summary",
+      "AddNpc": "Add NPC (no Actor)",
+      "Remove": "Remove",
+      "AddArgument": "Add Argument",
+      "AddNote": "Add Note",
+      "AddReveal": "Add Reveal",
+      "AddAdjustment": "Add Adjustment",
+      "PostToChat": "Post to Chat"
+    },
+    "Status": {
+      "NotStarted": "Not started",
+      "InProgress": "In progress",
+      "Success": "Success",
+      "Failure": "Failure",
+      "Ended": "Ended"
+    },
+    "Visibility": {
+      "Title": "Visibility",
+      "ShowNpcNames": "Show NPC names",
+      "ShowInterest": "Show Interest",
+      "ShowPatience": "Show Patience",
+      "Hidden": "Hidden",
+      "Value": "Value",
+      "Range": "Range",
+      "ShowArgumentDetails": "Show argument details",
+      "ShowRollTotals": "Show roll totals"
+    },
+    "RollMode": {
+      "None": "None",
+      "ManualTotal": "Manual total",
+      "FoundryRoll": "Foundry roll"
+    },
+    "Notify": {
+      "OnlyGM": "Only the GM can do that.",
+      "NeedNPC": "Add an NPC participant first.",
+      "NeedPC": "Add a PC participant first.",
+      "Created": "Created Negotiation Test: {name}",
+      "Posted": "Posted to chat."
+    }
+  }
+}

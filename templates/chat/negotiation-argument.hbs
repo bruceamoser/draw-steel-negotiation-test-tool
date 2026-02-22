@@ -1,0 +1,13 @@
+<div class="negotiation-chat-card">
+  <div class="neg-title">{{title}}</div>
+  <div class="neg-muted">{{actorName}} → {{targetName}}</div>
+  {{#if summary}}
+  <div>{{summary}}</div>
+  {{/if}}
+  {{#if roll}}
+  <div class="neg-muted neg-small">Roll: {{roll}}</div>
+  {{/if}}
+  {{#if effects}}
+  <div class="neg-muted neg-small">{{effects}}</div>
+  {{/if}}
+</div>

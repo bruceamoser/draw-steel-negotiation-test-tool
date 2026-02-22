@@ -1,0 +1,50 @@
+{
+  "id": "draw-steel-negotiation",
+  "title": "Draw Steel - Negotiation Test Tool",
+  "description": "Run, track, and resolve Negotiation tests for the Draw Steel RPG system in Foundry VTT.",
+  "version": "0.1.0",
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13.351"
+  },
+  "relationships": {
+    "systems": [
+      {
+        "id": "draw-steel",
+        "type": "system",
+        "compatibility": {
+          "minimum": "0.9.0",
+          "verified": "0.10.0"
+        }
+      }
+    ]
+  },
+  "authors": [
+    {
+      "name": "bitTwiddleNinja",
+      "url": "https://github.com/bruceamoser"
+    }
+  ],
+  "esmodules": [
+    "src/module.mjs"
+  ],
+  "styles": [
+    "styles/negotiation.css"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ],
+  "url": "https://github.com/bruceamoser/draw-steel-negotiation-test-tool",
+  "bugs": "https://github.com/bruceamoser/draw-steel-negotiation-test-tool/issues",
+  "license": "LICENSE",
+  "flags": {},
+  "documentTypes": {
+    "Item": {
+      "negotiationTest": {}
+    }
+  }
+}
