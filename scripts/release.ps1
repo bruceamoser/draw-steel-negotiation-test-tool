@@ -26,9 +26,15 @@ if ([string]::IsNullOrWhiteSpace($Tag)) {
   $Tag = "v$version"
 }
 
-$zipPath = Join-Path (Join-Path $repoRoot $OutDir) ("{0}-v{1}.zip" -f $moduleId, $version)
-if (!(Test-Path $zipPath)) {
-  throw "Zip not found at $zipPath. Run scripts/build.ps1 first."
+$outDirPath = Join-Path $repoRoot $OutDir
+$manifestPath = Join-Path $outDirPath "module.json"
+$zipStablePath = Join-Path $outDirPath ("{0}.zip" -f $moduleId)
+
+if (!(Test-Path $manifestPath)) {
+  throw "Manifest not found at $manifestPath. Run scripts/build.ps1 first."
+}
+if (!(Test-Path $zipStablePath)) {
+  throw "Zip not found at $zipStablePath. Run scripts/build.ps1 first."
 }
 
 # Ensure gh is authenticated (will throw if not)
@@ -36,12 +42,13 @@ if (!(Test-Path $zipPath)) {
 
 $args = @(
   "release", "create", $Tag,
-  $zipPath,
+  $manifestPath,
+  $zipStablePath,
   "--title", "$moduleId $version",
   "--generate-notes"
 )
 if ($Draft) { $args += "--draft" }
 if ($Prerelease) { $args += "--prerelease" }
 
-Write-Host "Creating GitHub release '$Tag' with asset: $zipPath"
+Write-Host "Creating GitHub release '$Tag' with assets: $manifestPath, $zipStablePath"
 & gh @args
