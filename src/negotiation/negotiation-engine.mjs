@@ -42,12 +42,12 @@ export function createDefaultNegotiationState(rules, options = {}) {
     createdByUserId: options.createdByUserId ?? "",
 
     setup: {
-      stakes: {
+      overview: "",
+      outcomes: {
         success: "",
+        partialSuccess: "",
         failure: "",
       },
-      contextPublic: "",
-      contextGM: "",
       rulesProfileId: profileId,
       structure: {
         kind: rules?.structure?.kind ?? "freeform",
@@ -308,7 +308,9 @@ export function addArgumentEntry(state, rules, payload, options = {}) {
   const profile = profiles[profileKey] ?? null;
 
   let tier;
+  const explicitTier = Number(payload?.tier ?? payload?.roll?.tier);
   if (profile?.automaticTier) tier = Number(profile.automaticTier);
+  else if (Number.isFinite(explicitTier) && explicitTier >= 1) tier = explicitTier;
   else tier = computeTier(rules, rollTotal);
 
   // Repeating a no-motivation argument forces tier 1.
@@ -781,8 +783,13 @@ export function addDiscoveryEntry(state, rules, payload, options = {}) {
   const entryVisible = !!payload.isRevealedToPlayers;
   const revealToPlayers = !!payload.revealToPlayers;
 
-  const kind = String(payload.kind ?? "").trim();
-  const detailId = String(payload.detailId ?? "").trim();
+  const totalRaw = payload.rollTotal;
+  const rollTotal = (totalRaw === "" || totalRaw === undefined || totalRaw === null) ? null : Number(totalRaw);
+  let discoveryTier = rollTotal === null ? null : computeTier(rules, rollTotal);
+  if (!discoveryTier) discoveryTier = rollTotal === null ? null : 2;
+
+  let kind = String(payload.kind ?? "").trim();
+  let detailId = String(payload.detailId ?? "").trim();
 
   let label = String(payload.label ?? "").trim();
   if (!label && detailId) {
@@ -797,6 +804,23 @@ export function addDiscoveryEntry(state, rules, payload, options = {}) {
   npc.motivations ??= [];
   npc.pitfalls ??= [];
   npc.discovered ??= { motivations: [], pitfalls: [] };
+
+  // If this is a discovery roll (no explicit detail requested), learn one detail on tier 3.
+  if ((!kind || !detailId) && discoveryTier !== null) {
+    const learns = rules?.discoveryTest?.byTier?.[discoveryTier]?.learns ?? "none";
+    if (learns === "one") {
+      const unrevealedMotivation = (npc.motivations ?? []).find((m) => m && !m.isRevealed);
+      const unrevealedPitfall = (npc.pitfalls ?? []).find((p) => p && !p.isRevealed);
+      const pick = unrevealedMotivation ? { kind: "motivation", id: unrevealedMotivation.id, label: unrevealedMotivation.label }
+        : unrevealedPitfall ? { kind: "pitfall", id: unrevealedPitfall.id, label: unrevealedPitfall.label }
+          : null;
+      if (pick) {
+        kind = pick.kind;
+        detailId = pick.id;
+        if (!label) label = pick.label;
+      }
+    }
+  }
 
   if (kind === "motivation" && detailId) {
     let m = npc.motivations.find((x) => x?.id === detailId);
@@ -821,6 +845,22 @@ export function addDiscoveryEntry(state, rules, payload, options = {}) {
 
   const effectsApplied = [];
 
+  // Apply patience delta for discovery rolls.
+  if (discoveryTier !== null) {
+    const patienceDelta = Number(rules?.discoveryTest?.byTier?.[discoveryTier]?.patienceDelta ?? 0);
+    const vis = next?.setup?.visibility ?? {};
+    const showPatience = vis.showPatience ?? "value";
+    if (Number.isFinite(patienceDelta) && patienceDelta !== 0) {
+      effectsApplied.push({
+        stat: "patience",
+        delta: patienceDelta,
+        appliedToNpcParticipantId: targetId,
+        reason: rules?.discoveryTest?.id ?? "discover",
+        visibleToPlayers: entryVisible && showPatience !== "hidden",
+      });
+    }
+  }
+
   const entry = {
     id: _safeId(options.idFn),
     timestampIso: _nowIso(),
@@ -833,11 +873,20 @@ export function addDiscoveryEntry(state, rules, payload, options = {}) {
       label,
       detailsGM: String(payload.detailsGM ?? ""),
     },
-    roll: null,
-    effects: [],
+    roll: (rollTotal === null)
+      ? null
+      : {
+        mode: "manualTotal",
+        formula: "",
+        total: rollTotal,
+        tier: discoveryTier,
+        visibleToPlayers: false,
+      },
+    effects: effectsApplied,
     isRevealedToPlayers: entryVisible,
   };
 
   seg.entries.push(entry);
-  return { nextState: next, entry, effectsApplied };
+  const after = applyEffects(next, effectsApplied);
+  return { nextState: after, entry, effectsApplied };
 }

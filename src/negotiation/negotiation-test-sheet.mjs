@@ -6,8 +6,7 @@ import { MODULE_ID } from "../config.mjs";
 import { negotiationRules_v101b } from "./rules/draw-steel-v1.01b.mjs";
 import {
   addParticipant,
-  addTestEntry,
-  addNoteEntry,
+  addArgumentEntry,
   addDiscoveryEntry,
   advanceStructure,
   startNegotiation,
@@ -66,43 +65,39 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     const viewState = redactForViewer(this.item.system, { isGM: game.user.isGM });
     const system = viewState;
 
+    const enrichedOverview = await _TextEditor.enrichHTML(system?.setup?.overview ?? "", { async: true });
+    const enrichedOutcomeSuccess = await _TextEditor.enrichHTML(system?.setup?.outcomes?.success ?? "", { async: true });
+    const enrichedOutcomePartialSuccess = await _TextEditor.enrichHTML(system?.setup?.outcomes?.partialSuccess ?? "", { async: true });
+    const enrichedOutcomeFailure = await _TextEditor.enrichHTML(system?.setup?.outcomes?.failure ?? "", { async: true });
+
     const currentSeg = _currentSegment(system);
     const statusKey = system.resolution?.status ?? "notStarted";
     const statusLabel = game.i18n.localize(`NEGOTIATION.Status.${statusKey.charAt(0).toUpperCase() + statusKey.slice(1)}`);
 
     const participants = (system.participants ?? []).map((p, index) => ({ ...p, index }));
     const pcOptions = participants.filter((p) => p.kind === "pc").map((p) => ({ id: p.id, label: p.displayName }));
-    const npcOptions = participants.filter((p) => p.kind === "npc").map((p) => ({
-      id: p.id,
-      label: p.displayName,
-      selected: p.id === (this._selectedNpcId ?? null),
-    }));
 
-    if (!this._selectedNpcId && npcOptions.length) this._selectedNpcId = npcOptions[0].id;
-    const selectedNpcState = this._selectedNpcId ? (system.npcStateByParticipantId ?? {})[this._selectedNpcId] : null;
-    const selectedNpcParticipant = participants.find((p) => p.id === this._selectedNpcId) ?? null;
+    const npcParticipants = participants.filter((p) => p.kind === "npc");
+    if (!this._selectedNpcId) this._selectedNpcId = npcParticipants[0]?.id ?? null;
+    const selectedNpcId = this._selectedNpcId;
+
+    const selectedNpcState = selectedNpcId ? (system.npcStateByParticipantId ?? {})[selectedNpcId] : null;
+    const selectedNpcParticipant = selectedNpcId ? (participants.find((p) => p.id === selectedNpcId) ?? null) : null;
     const selectedNpcIndex = (selectedNpcParticipant && Number.isInteger(selectedNpcParticipant.index)) ? selectedNpcParticipant.index : null;
     const selectedNpc = selectedNpcState ? {
-      id: this._selectedNpcId,
+      id: selectedNpcId,
+      name: selectedNpcParticipant?.displayName ?? "NPC",
       participantIndex: selectedNpcIndex,
       hasParticipantIndex: selectedNpcIndex !== null,
       participantNotesGM: selectedNpcParticipant?.notesGM ?? "",
       interest: selectedNpcState.interest,
       patience: selectedNpcState.patience,
+      interestDisplay: _interestDisplay(system, selectedNpcState),
+      patienceDisplay: _patienceDisplay(system, selectedNpcState),
+      offerLabel: rules?.offersByInterest?.[Number(selectedNpcState?.interest?.value ?? 0)]?.label ?? "",
       motivations: selectedNpcState.motivations ?? [],
       pitfalls: selectedNpcState.pitfalls ?? [],
     } : null;
-
-    const npcSummaries = npcOptions.map((o) => {
-      const npcState = (system.npcStateByParticipantId ?? {})[o.id];
-      return {
-        id: o.id,
-        name: o.label,
-        interestDisplay: _interestDisplay(system, npcState),
-        patienceDisplay: _patienceDisplay(system, npcState),
-        offerLabel: rules?.offersByInterest?.[Number(npcState?.interest?.value ?? 0)]?.label ?? "",
-      };
-    });
 
     const timeline = (system.timeline ?? []).map((seg) => ({
       ...seg,
@@ -112,12 +107,14 @@ export class NegotiationTestSheet extends ItemSheetV1 {
         const effectsText = (e.effects ?? []).map((x) => `${x.stat} ${x.delta > 0 ? "+" : ""}${x.delta}`).join(", ");
 
         let summary = "";
-        if (e.entryType === "test") summary = e.test?.summary ?? "";
+        if (e.entryType === "argument") summary = e.argument?.summary ?? "";
+        else if (e.entryType === "test") summary = e.test?.summary ?? "";
         else if (e.entryType === "note") summary = e.note?.summary ?? "";
+        else if (e.entryType === "adjustment") summary = e.adjustment?.summary ?? "";
         else if (e.entryType === "reveal") {
           const k = e.reveal?.kind;
           const label = e.reveal?.label;
-          summary = (k && label) ? `Revealed ${k}: ${label}` : "Discovery";
+          summary = (k && label) ? `Revealed ${k}: ${label}` : "Discovery attempt";
         }
 
         return {
@@ -138,31 +135,48 @@ export class NegotiationTestSheet extends ItemSheetV1 {
       : "";
     const motivationOptions = (rules?.motivations ?? negotiationRules_v101b.motivations).map((m) => ({ id: m.id, label: m.label }));
     const pitfallOptions = (rules?.pitfalls ?? negotiationRules_v101b.pitfalls).map((p) => ({ id: p.id, label: p.label }));
+    const argumentTypeOptions = (rules?.argumentTypes ?? negotiationRules_v101b.argumentTypes).map((t) => ({ id: t.id, label: t.label }));
 
     return {
       ...data,
       isGM: game.user.isGM,
       system,
+      enrichedOverview,
+      enrichedOutcomeSuccess,
+      enrichedOutcomePartialSuccess,
+      enrichedOutcomeFailure,
       statusLabel,
       currentSegmentLabel: currentSeg?.label ?? "",
       participants,
       pcOptions,
-      npcOptions,
       selectedNpc,
-      npcSummaries,
       timeline,
       outcomeLabel,
       motivationOptions,
       pitfallOptions,
+      argumentTypeOptions,
     };
   }
 
   activateListeners(html) {
     super.activateListeners(html);
     html.find(".neg-action").on("click", this.#onAction.bind(this));
-    html.find('select[name="neg-selected-npc"]').on("change", (ev) => {
-      this._selectedNpcId = ev.currentTarget.value;
-      this.render();
+
+    // Enforce the single-NPC constraint in the Participants tab.
+    html.find(".neg-participant-kind").on("change", (ev) => {
+      if (!game.user.isGM) return;
+      const el = ev.currentTarget;
+      if (!el) return;
+      if (el.value !== "npc") return;
+
+      const root = html?.[0] ?? html;
+      const selects = root.querySelectorAll(".neg-participant-kind");
+      let npcCount = 0;
+      for (const s of selects) if (s?.value === "npc") npcCount += 1;
+      if (npcCount > 1) {
+        el.value = "pc";
+        ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.OnlyOneNPC"));
+      }
     });
 
     // Enable Actor drag/drop on the sheet.
@@ -183,6 +197,14 @@ export class NegotiationTestSheet extends ItemSheetV1 {
 
     // Draw Steel doesn't necessarily use dnd5e-style actor types. Treat "hero" and "character" as PCs.
     const kind = ["character", "hero", "pc"].includes(String(actor.type ?? "")) ? "pc" : "npc";
+
+    if (kind === "npc") {
+      const existingNpcCount = (this.item.system?.participants ?? []).filter((p) => p.kind === "npc").length;
+      if (existingNpcCount >= 1) {
+        ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.OnlyOneNPC"));
+        return;
+      }
+    }
 
     const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
     const updated = addParticipant(this.item.system, {
@@ -218,12 +240,10 @@ export class NegotiationTestSheet extends ItemSheetV1 {
         return this.#start();
       case "advanceStructure":
         return this.#advance();
-      case "addTestEntry":
-        return this.#addTest();
-      case "addNoteEntry":
-        return this.#addNote();
-      case "addDiscoveryEntry":
-        return this.#addDiscovery();
+      case "addArgumentEntry":
+        return this.#addArgument();
+      case "addRevealEntry":
+        return this.#addReveal();
       case "addNpcMotivation":
         return this.#addNpcMotivation();
       case "removeNpcMotivation":
@@ -240,6 +260,11 @@ export class NegotiationTestSheet extends ItemSheetV1 {
   }
 
   async #addNpcNoActor() {
+    const existingNpcCount = (this.item.system?.participants ?? []).filter((p) => p.kind === "npc").length;
+    if (existingNpcCount >= 1) {
+      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.OnlyOneNPC"));
+      return;
+    }
     const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
     const updated = addParticipant(this.item.system, {
       displayName: "NPC",
@@ -269,76 +294,75 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     await this.item.update({ system: next });
   }
 
-  async #addTest() {
+  async #addArgument() {
     const root = this.element?.[0] ?? this.element;
     if (!root) return;
 
-    const actorId = root.querySelector('select[name="neg-test-actor"]')?.value;
-    const targetId = root.querySelector('select[name="neg-test-target"]')?.value;
-    const summary = root.querySelector('input[name="neg-test-summary"]')?.value ?? "";
-    const detailsGM = root.querySelector('textarea[name="neg-test-details"]')?.value ?? "";
-    const totalStr = root.querySelector('input[name="neg-test-total"]')?.value;
-    const total = totalStr === "" || totalStr === undefined ? null : Number(totalStr);
-    const rollVisible = !!root.querySelector('input[name="neg-test-roll-visible"]')?.checked;
-    const interestDelta = Number(root.querySelector('input[name="neg-test-interest"]')?.value ?? 0);
-    const patienceDelta = Number(root.querySelector('input[name="neg-test-patience"]')?.value ?? 0);
-    const reveal = !!root.querySelector('input[name="neg-test-reveal"]')?.checked;
+    const actorId = root.querySelector('select[name="neg-arg-actor"]')?.value;
+    const tier = Number(root.querySelector('select[name="neg-arg-tier"]')?.value ?? 2);
+    const argTypeId = root.querySelector('select[name="neg-arg-type"]')?.value ?? "custom";
+    const motivationId = root.querySelector('select[name="neg-arg-motivation"]')?.value ?? "";
+    const pitfallId = root.querySelector('select[name="neg-arg-pitfall"]')?.value ?? "";
+    const summary = root.querySelector('input[name="neg-arg-summary"]')?.value ?? "";
+    const detailsGM = root.querySelector('textarea[name="neg-arg-details"]')?.value ?? "";
+    const reveal = !!root.querySelector('input[name="neg-arg-reveal"]')?.checked;
 
-    const { nextState } = addTestEntry(this.item.system, {
+    const targetId = this._selectedNpcId;
+    if (!targetId) {
+      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC"));
+      return;
+    }
+    if (!actorId) {
+      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedPC"));
+      return;
+    }
+
+    const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
+    const { nextState } = addArgumentEntry(this.item.system, rules, {
       actorParticipantId: actorId,
       targetNpcParticipantId: targetId,
+      argumentTypeId: argTypeId,
+      claimedMotivationId: motivationId || null,
+      triggeredPitfallId: pitfallId || null,
       summary,
       detailsGM,
-      rollTotal: total,
-      rollVisibleToPlayers: rollVisible,
-      interestDelta,
-      patienceDelta,
+      tier,
+      roll: { mode: "none", formula: "", total: null, visibleToPlayers: false },
       isRevealedToPlayers: reveal,
     }, { idFn: () => foundry.utils.randomID() });
 
     await this.item.update({ system: nextState });
   }
 
-  async #addNote() {
+  async #addReveal() {
     const root = this.element?.[0] ?? this.element;
     if (!root) return;
 
-    const summary = root.querySelector('input[name="neg-note-summary"]')?.value ?? "";
-    const detailsGM = root.querySelector('textarea[name="neg-note-details"]')?.value ?? "";
-    const reveal = !!root.querySelector('input[name="neg-note-reveal"]')?.checked;
+    const actorId = root.querySelector('select[name="neg-reveal-actor"]')?.value;
+    const totalStr = root.querySelector('input[name="neg-reveal-total"]')?.value;
+    const total = totalStr === "" || totalStr === undefined ? null : Number(totalStr);
+    const detailsGM = root.querySelector('textarea[name="neg-reveal-details"]')?.value ?? "";
+    const revealToPlayers = !!root.querySelector('input[name="neg-reveal-to-players"]')?.checked;
 
-    const { nextState } = addNoteEntry(this.item.system, {
-      summary,
-      detailsGM,
-      isRevealedToPlayers: reveal,
-    }, { idFn: () => foundry.utils.randomID() });
-
-    await this.item.update({ system: nextState });
-  }
-
-  async #addDiscovery() {
-    const root = this.element?.[0] ?? this.element;
-    if (!root) return;
-
-    const actorId = root.querySelector('select[name="neg-disc-actor"]')?.value;
-    const targetId = root.querySelector('select[name="neg-disc-target"]')?.value;
-    const kind = root.querySelector('select[name="neg-disc-kind"]')?.value ?? "";
-    const motivationId = root.querySelector('select[name="neg-disc-motivation"]')?.value ?? "";
-    const pitfallId = root.querySelector('select[name="neg-disc-pitfall"]')?.value ?? "";
-    const detailId = kind === "pitfall" ? pitfallId : motivationId;
-    const detailsGM = root.querySelector('textarea[name="neg-disc-details"]')?.value ?? "";
-    const reveal = !!root.querySelector('input[name="neg-disc-reveal"]')?.checked;
+    const targetId = this._selectedNpcId;
+    if (!targetId) {
+      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC"));
+      return;
+    }
+    if (!actorId) {
+      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedPC"));
+      return;
+    }
+    if (total === null || !Number.isFinite(total)) return;
 
     const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
     const { nextState } = addDiscoveryEntry(this.item.system, rules, {
       actorParticipantId: actorId,
       targetNpcParticipantId: targetId,
-      kind,
-      detailId,
-      label: "",
+      rollTotal: total,
       detailsGM,
-      revealToPlayers: reveal,
-      isRevealedToPlayers: reveal,
+      revealToPlayers,
+      isRevealedToPlayers: revealToPlayers,
     }, { idFn: () => foundry.utils.randomID() });
 
     await this.item.update({ system: nextState });
@@ -382,6 +406,7 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     if (!def) return;
 
     const npcId = this._selectedNpcId;
+    if (!npcId) return;
     const system = foundry.utils.deepClone(this.item.system);
     system.npcStateByParticipantId ??= {};
     system.npcStateByParticipantId[npcId] ??= {};
@@ -414,6 +439,7 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     if (!def) return;
 
     const npcId = this._selectedNpcId;
+    if (!npcId) return;
     const system = foundry.utils.deepClone(this.item.system);
     system.npcStateByParticipantId ??= {};
     system.npcStateByParticipantId[npcId] ??= {};

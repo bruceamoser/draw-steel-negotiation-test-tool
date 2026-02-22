@@ -8,7 +8,7 @@
       "Overview": "Overview",
       "Participants": "Participants",
       "NpcProfile": "NPC Profile",
-      "Timeline": "Timeline",
+      "Timeline": "Actions",
       "Result": "Result",
       "Settings": "Settings"
     },
@@ -17,6 +17,7 @@
       "Status": "Status",
       "Stakes": "Stakes",
       "Success": "Success",
+      "PartialSuccess": "Partial Success",
       "Failure": "Failure",
       "ContextPublic": "Public Context",
       "ContextGM": "GM Context",
@@ -82,6 +83,7 @@
       "OnlyGM": "Only the GM can do that.",
       "NeedNPC": "Add an NPC participant first.",
       "NeedPC": "Add a PC participant first.",
+      "OnlyOneNPC": "Only one NPC participant is allowed.",
       "Created": "Created Negotiation Test: {name}",
       "Posted": "Posted to chat."
     }

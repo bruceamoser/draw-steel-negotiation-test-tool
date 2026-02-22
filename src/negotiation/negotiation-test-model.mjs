@@ -42,12 +42,12 @@ export class NegotiationTestDataModel extends foundry.abstract.TypeDataModel {
       createdByUserId: new fields.StringField({ required: false, blank: true, initial: "" }),
 
       setup: new fields.SchemaField({
-        stakes: new fields.SchemaField({
+        overview: new fields.StringField({ required: false, blank: true, initial: "" }),
+        outcomes: new fields.SchemaField({
           success: new fields.StringField({ required: false, blank: true, initial: "" }),
+          partialSuccess: new fields.StringField({ required: false, blank: true, initial: "" }),
           failure: new fields.StringField({ required: false, blank: true, initial: "" }),
         }),
-        contextPublic: new fields.StringField({ required: false, blank: true, initial: "" }),
-        contextGM: new fields.StringField({ required: false, blank: true, initial: "" }),
         rulesProfileId: new fields.StringField({ required: true, blank: false, initial: "draw-steel-v1.01b" }),
         structure: new fields.SchemaField({
           kind: new fields.StringField({ required: true, initial: "freeform", choices: ["rounds", "stages", "freeform"] }),
