@@ -183,13 +183,6 @@
             <span class="neg-offer-label">{{selectedNpc.offerLabel}}</span>
           </div>
 
-          {{#if selectedNpc.hasParticipantIndex}}
-          <div class="neg-field">
-            <label>GM Notes</label>
-            <textarea name="system.participants.{{selectedNpc.participantIndex}}.notesGM"
-              rows="3">{{selectedNpc.participantNotesGM}}</textarea>
-          </div>
-          {{/if}}
           {{/if}}
         </div>
 
@@ -323,10 +316,6 @@
           {{!-- Add Argument --}}
           <div class="neg-section">
             <h4 class="neg-section-title">Add Argument</h4>
-            <p class="neg-hint">
-              Pick the result tier directly. Interest/patience deltas are computed
-              automatically from the argument type and tier.
-            </p>
             <div class="neg-form-grid">
               <label>PC Acting</label>
               <select name="neg-arg-actor">
@@ -336,11 +325,11 @@
                 {{/each}}
               </select>
 
-              <label>Tier Result</label>
+              <label>Tier</label>
               <select name="neg-arg-tier">
-                <option value="1">Tier 1</option>
-                <option value="2" selected>Tier 2</option>
-                <option value="3">Tier 3</option>
+                <option value="1">Tier 1 (≤11)</option>
+                <option value="2" selected>Tier 2 (12–16)</option>
+                <option value="3">Tier 3 (17+)</option>
               </select>
 
               <label>Argument Type</label>
@@ -365,9 +354,6 @@
                 <option value="{{this.id}}">{{this.label}}</option>
                 {{/each}}
               </select>
-
-              <label>GM Notes</label>
-              <textarea name="neg-arg-details" rows="2" placeholder="Optional GM-only notes"></textarea>
             </div>
             <div class="neg-form-footer">
               <label class="neg-checkbox-label">
@@ -381,11 +367,7 @@
 
           {{!-- Discover Motivation / Pitfall --}}
           <div class="neg-section">
-            <h4 class="neg-section-title">Discover Motivation / Pitfall</h4>
-            <p class="neg-hint">
-              Enter the roll total — tier is computed from the rules automatically.
-              Tier&nbsp;3 auto-reveals one unrevealed motivation (or pitfall if all known).
-            </p>
+            <h4 class="neg-section-title">Discover</h4>
             <div class="neg-form-grid">
               <label>PC Acting</label>
               <select name="neg-reveal-actor">
@@ -396,10 +378,7 @@
               </select>
 
               <label>Roll Total</label>
-              <input type="number" name="neg-reveal-total" placeholder="e.g. 14 → Tier 2" />
-
-              <label>GM Notes</label>
-              <textarea name="neg-reveal-details" rows="2" placeholder="Optional GM-only notes"></textarea>
+              <input type="number" name="neg-reveal-total" placeholder="≤11 T1 · 12–16 T2 · 17+ T3" />
             </div>
             <div class="neg-form-footer">
               <label class="neg-checkbox-label">
@@ -433,13 +412,10 @@
                   {{#if this.rollTier}}
                   <span class="neg-tier-badge">T{{this.rollTier}}</span>
                   {{/if}}
+                  {{#if this.effectsText}}
+                  <span class="neg-log-effects">→ {{this.effectsText}}</span>
+                  {{/if}}
                 </div>
-                {{#if this.summary}}
-                <div class="neg-log-summary">{{this.summary}}</div>
-                {{/if}}
-                {{#if this.effectsText}}
-                <div class="neg-log-effects">→ {{this.effectsText}}</div>
-                {{/if}}
               </div>
               {{else}}
               <p class="neg-empty">No entries yet.</p>
@@ -463,8 +439,12 @@
         {{#each this.entries}}
         {{#if this.isRevealedToPlayers}}
         <div class="neg-log-entry neg-log-entry--player">
-          {{#if this.summary}}<div class="neg-log-summary">{{this.summary}}</div>{{/if}}
-          {{#if this.effectsText}}<div class="neg-log-effects">→ {{this.effectsText}}</div>{{/if}}
+          <div class="neg-log-entry-meta">
+            {{#if this.actorName}}<span class="neg-log-actor">{{this.actorName}}</span>{{/if}}
+            <span class="neg-log-type">{{this.entryType}}</span>
+            {{#if this.rollTier}}<span class="neg-tier-badge">T{{this.rollTier}}</span>{{/if}}
+            {{#if this.effectsText}}<span class="neg-log-effects">→ {{this.effectsText}}</span>{{/if}}
+          </div>
         </div>
         {{/if}}
         {{/each}}

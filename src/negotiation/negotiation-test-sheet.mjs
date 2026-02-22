@@ -46,8 +46,8 @@ export class NegotiationTestSheet extends ItemSheetV1 {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       classes: ["negotiation-app", "negotiation-test-sheet"],
-      width: 760,
-      height: 760,
+      width: 820,
+      height: 700,
       submitOnClose: true,
       tabs: [{ navSelector: ".tabs", contentSelector: ".tab-content", initial: "overview" }],
     });
@@ -316,8 +316,6 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     const argTypeId = root.querySelector('select[name="neg-arg-type"]')?.value ?? "custom";
     const motivationId = root.querySelector('select[name="neg-arg-motivation"]')?.value ?? "";
     const pitfallId = root.querySelector('select[name="neg-arg-pitfall"]')?.value ?? "";
-    const summary = root.querySelector('input[name="neg-arg-summary"]')?.value ?? "";
-    const detailsGM = root.querySelector('textarea[name="neg-arg-details"]')?.value ?? "";
     const reveal = !!root.querySelector('input[name="neg-arg-reveal"]')?.checked;
 
     const targetId = this._selectedNpcId;
@@ -337,8 +335,8 @@ export class NegotiationTestSheet extends ItemSheetV1 {
       argumentTypeId: argTypeId,
       claimedMotivationId: motivationId || null,
       triggeredPitfallId: pitfallId || null,
-      summary,
-      detailsGM,
+      summary: "",
+      detailsGM: "",
       tier,
       roll: { mode: "none", formula: "", total: null, visibleToPlayers: false },
       isRevealedToPlayers: reveal,
@@ -354,7 +352,6 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     const actorId = root.querySelector('select[name="neg-reveal-actor"]')?.value;
     const totalStr = root.querySelector('input[name="neg-reveal-total"]')?.value;
     const total = totalStr === "" || totalStr === undefined ? null : Number(totalStr);
-    const detailsGM = root.querySelector('textarea[name="neg-reveal-details"]')?.value ?? "";
     const revealToPlayers = !!root.querySelector('input[name="neg-reveal-to-players"]')?.checked;
 
     const targetId = this._selectedNpcId;
@@ -373,7 +370,7 @@ export class NegotiationTestSheet extends ItemSheetV1 {
       actorParticipantId: actorId,
       targetNpcParticipantId: targetId,
       rollTotal: total,
-      detailsGM,
+      detailsGM: "",
       revealToPlayers,
       isRevealedToPlayers: revealToPlayers,
     }, { idFn: () => foundry.utils.randomID() });
