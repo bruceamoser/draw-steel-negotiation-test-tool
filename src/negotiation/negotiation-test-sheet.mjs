@@ -20,6 +20,8 @@ import { getRulesProfile } from "./negotiation-state.mjs";
 
 const ItemSheetV1 = foundry.appv1?.sheets?.ItemSheet ?? ItemSheet;
 
+const _TextEditor = foundry.applications?.ux?.TextEditor?.implementation ?? TextEditor;
+
 function _currentSegment(system) {
   const t = system.timeline ?? [];
   return t.length ? t[t.length - 1] : null;
@@ -170,14 +172,17 @@ export class NegotiationTestSheet extends ItemSheetV1 {
   async #onDrop(event) {
     if (!game.user.isGM) return;
     event.preventDefault();
-    const data = TextEditor.getDragEventData(event);
+    const dragEvent = event?.originalEvent ?? event;
+    if (!dragEvent?.dataTransfer) return;
+    const data = _TextEditor.getDragEventData(dragEvent);
     if (!data) return;
 
     if (data.type !== "Actor") return;
     const actor = await fromUuid(data.uuid);
     if (!actor) return;
 
-    const kind = actor.type === "character" ? "pc" : "npc";
+    // Draw Steel doesn't necessarily use dnd5e-style actor types. Treat "hero" and "character" as PCs.
+    const kind = ["character", "hero", "pc"].includes(String(actor.type ?? "")) ? "pc" : "npc";
 
     const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
     const updated = addParticipant(this.item.system, {
