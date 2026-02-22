@@ -2,7 +2,7 @@
 
 [![Foundry VTT](https://img.shields.io/badge/Foundry_VTT-v13-orange?style=flat-square)](https://foundryvtt.com)
 [![System](https://img.shields.io/badge/System-Draw_Steel-blue?style=flat-square)](https://github.com/MetaMorphic-Digital/draw-steel)
-[![Version](https://img.shields.io/badge/version-0.1.0-brightgreen?style=flat-square)](https://github.com/bruceamoser/draw-steel-negotiation-test-tool/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.1.1-brightgreen?style=flat-square)](https://github.com/bruceamoser/draw-steel-negotiation-test-tool/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
 A [Foundry VTT](https://foundryvtt.com) module for the [Draw Steel](https://mcdmproductions.com) RPG system that adds a dedicated **Negotiation Test Item** — a persistent sheet for tracking participants, NPC Interest/Patience, arguments, discoveries, and resolution.
