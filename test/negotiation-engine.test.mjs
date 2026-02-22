@@ -6,7 +6,7 @@ import {
   computeTier,
   createDefaultNegotiationState,
   addParticipant,
-  addArgumentEntry,
+  addTestEntry,
   addDiscoveryEntry,
   redactForViewer,
 } from "../src/negotiation/negotiation-engine.mjs";
@@ -23,7 +23,7 @@ test("computeTier uses v1.01b bands", () => {
   assert.equal(computeTier(rules, 17), 3);
 });
 
-test("addArgumentEntry applies no-motivation tier deltas", () => {
+test("addTestEntry applies manual deltas", () => {
   const idFn = idFnFactory();
   let state = createDefaultNegotiationState(rules, { title: "T" });
 
@@ -33,62 +33,23 @@ test("addArgumentEntry applies no-motivation tier deltas", () => {
   const beforeInterest = state.npcStateByParticipantId.npc1.interest.value;
   const beforePatience = state.npcStateByParticipantId.npc1.patience.value;
 
-  const { nextState, entry } = addArgumentEntry(
-    state,
-    rules,
-    {
-      actorParticipantId: "pc1",
-      targetNpcParticipantId: "npc1",
-      argumentTypeId: "noMotivation",
-      summary: "Bargain",
-      roll: { mode: "manualTotal", total: 10, visibleToPlayers: true }, // tier 1
-      isRevealedToPlayers: true,
-    },
-    { idFn },
-  );
+  const { nextState, entry } = addTestEntry(state, {
+    actorParticipantId: "pc1",
+    targetNpcParticipantId: "npc1",
+    summary: "Bargain",
+    detailsGM: "",
+    rollTotal: 10,
+    rollVisibleToPlayers: true,
+    interestDelta: -1,
+    patienceDelta: -1,
+    isRevealedToPlayers: true,
+  }, { idFn });
 
   assert.ok(entry);
-  assert.equal(entry.roll.tier, 1);
+  assert.equal(entry.entryType, "test");
+  assert.equal(entry.roll.total, 10);
   assert.equal(nextState.npcStateByParticipantId.npc1.interest.value, beforeInterest - 1);
   assert.equal(nextState.npcStateByParticipantId.npc1.patience.value, beforePatience - 1);
-});
-
-test("repeat no-motivation summary forces tier 1", () => {
-  const idFn = idFnFactory();
-  let state = createDefaultNegotiationState(rules, { title: "T" });
-
-  state = addParticipant(state, { id: "pc1", displayName: "PC", kind: "pc" }, rules, { idFn });
-  state = addParticipant(state, { id: "npc1", displayName: "NPC", kind: "npc" }, rules, { idFn });
-
-  const first = addArgumentEntry(
-    state,
-    rules,
-    {
-      actorParticipantId: "pc1",
-      targetNpcParticipantId: "npc1",
-      argumentTypeId: "noMotivation",
-      summary: "Same pitch",
-      roll: { mode: "manualTotal", total: 12, visibleToPlayers: true }, // tier 2
-      isRevealedToPlayers: false,
-    },
-    { idFn },
-  );
-
-  const second = addArgumentEntry(
-    first.nextState,
-    rules,
-    {
-      actorParticipantId: "pc1",
-      targetNpcParticipantId: "npc1",
-      argumentTypeId: "noMotivation",
-      summary: "Same pitch",
-      roll: { mode: "manualTotal", total: 17, visibleToPlayers: true }, // would be tier 3
-      isRevealedToPlayers: false,
-    },
-    { idFn },
-  );
-
-  assert.equal(second.entry.roll.tier, 1);
 });
 
 test("redactForViewer strips GM-only fields and unrevealed NPC details", () => {
@@ -114,7 +75,7 @@ test("redactForViewer strips GM-only fields and unrevealed NPC details", () => {
   assert.equal(redacted.npcStateByParticipantId.npc1.motivations[0].id, "justice");
 });
 
-test("addDiscoveryEntry applies patience delta and can reveal one motivation", () => {
+test("addDiscoveryEntry reveals chosen motivation", () => {
   const idFn = idFnFactory();
   let state = createDefaultNegotiationState(rules, { title: "T" });
   state = addParticipant(state, { id: "pc1", displayName: "PC", kind: "pc" }, rules, { idFn });
@@ -124,16 +85,17 @@ test("addDiscoveryEntry applies patience delta and can reveal one motivation", (
     { id: "power", label: "Power", isRevealed: false },
   ];
 
-  const beforePatience = state.npcStateByParticipantId.npc1.patience.value;
-
   const { nextState, entry } = addDiscoveryEntry(
     state,
     rules,
     {
       actorParticipantId: "pc1",
       targetNpcParticipantId: "npc1",
+      kind: "motivation",
+      detailId: "power",
+      label: "",
+      detailsGM: "",
       revealToPlayers: true,
-      roll: { mode: "manualTotal", total: 17, visibleToPlayers: true }, // tier 3
       isRevealedToPlayers: true,
     },
     { idFn },
@@ -141,9 +103,8 @@ test("addDiscoveryEntry applies patience delta and can reveal one motivation", (
 
   assert.ok(entry);
   assert.equal(entry.entryType, "reveal");
-  assert.equal(entry.roll.tier, 3);
   assert.equal(entry.reveal.kind, "motivation");
   assert.equal(entry.reveal.id, "power");
   assert.equal(nextState.npcStateByParticipantId.npc1.motivations[0].isRevealed, true);
-  assert.equal(nextState.npcStateByParticipantId.npc1.patience.value, beforePatience);
+  assert.equal(entry.roll, null);
 });

@@ -92,9 +92,6 @@
             <button type="button" class="neg-action" data-action="resolveNegotiation">
               <i class="fa-solid fa-flag-checkered"></i> {{localize "NEGOTIATION.Actions.Resolve"}}
             </button>
-            <button type="button" class="neg-action" data-action="postSummary">
-              <i class="fa-solid fa-comment"></i> {{localize "NEGOTIATION.Actions.PostSummary"}}
-            </button>
             {{/if}}
             <button type="button" class="neg-action" data-action="copySummary">
               <i class="fa-solid fa-copy"></i> {{localize "NEGOTIATION.Actions.CopySummary"}}
@@ -246,14 +243,14 @@
       {{#if isGM}}
       <div class="neg-card">
         <div class="neg-row">
-          <strong>{{localize "NEGOTIATION.Actions.AddArgument"}}</strong>
+          <strong>{{localize "NEGOTIATION.Actions.AddTest"}}</strong>
         </div>
 
         <div class="neg-grid">
           <div>
             <div class="form-group">
               <label>Actor (PC)</label>
-              <select name="neg-arg-actor">
+              <select name="neg-test-actor">
                 {{#each pcOptions}}
                 <option value="{{this.id}}">{{this.label}}</option>
                 {{/each}}
@@ -261,80 +258,46 @@
             </div>
             <div class="form-group">
               <label>Target (NPC)</label>
-              <select name="neg-arg-target">
+              <select name="neg-test-target">
                 {{#each npcOptions}}
                 <option value="{{this.id}}">{{this.label}}</option>
                 {{/each}}
               </select>
             </div>
             <div class="form-group">
-              <label>Argument Type</label>
-              <select name="neg-arg-type">
-                {{#each argumentTypeOptions}}
-                <option value="{{this.id}}">{{this.label}}</option>
-                {{/each}}
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label>{{localize "NEGOTIATION.Fields.Motivations"}} (optional)</label>
-              <select name="neg-arg-motivation">
-                <option value="">—</option>
-                {{#each motivationOptions}}
-                <option value="{{this.id}}">{{this.label}}</option>
-                {{/each}}
-              </select>
-            </div>
-            <div class="form-group">
-              <label>{{localize "NEGOTIATION.Fields.Pitfalls"}} (optional)</label>
-              <select name="neg-arg-pitfall">
-                <option value="">—</option>
-                {{#each pitfallOptions}}
-                <option value="{{this.id}}">{{this.label}}</option>
-                {{/each}}
-              </select>
-            </div>
-            <div class="form-group">
               <label>{{localize "NEGOTIATION.Fields.Summary"}}</label>
-              <input type="text" name="neg-arg-summary" placeholder="Short public summary" />
+              <input type="text" name="neg-test-summary" placeholder="Short public summary" />
             </div>
             <div class="form-group">
               <label>{{localize "NEGOTIATION.Fields.DetailsGM"}}</label>
-              <textarea name="neg-arg-details"></textarea>
+              <textarea name="neg-test-details"></textarea>
             </div>
           </div>
           <div>
             <div class="form-group">
-              <label>{{localize "NEGOTIATION.Fields.Roll"}}</label>
-              <select name="neg-roll-mode">
-                <option value="none">{{localize "NEGOTIATION.RollMode.None"}}</option>
-                <option value="manualTotal">{{localize "NEGOTIATION.RollMode.ManualTotal"}}</option>
-                <option value="foundryRoll">{{localize "NEGOTIATION.RollMode.FoundryRoll"}}</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Formula</label>
-              <input type="text" name="neg-roll-formula" placeholder="e.g. 2d10+Presence" />
-            </div>
-            <div class="form-group">
-              <label>Total</label>
-              <input type="number" name="neg-roll-total" />
+              <label>{{localize "NEGOTIATION.Fields.Roll"}} (optional)</label>
+              <input type="number" name="neg-test-total" placeholder="Total" />
             </div>
 
             <div class="neg-row">
-              <label class="neg-small"><input type="checkbox" name="neg-roll-visible" checked /> Roll visible to players</label>
-            </div>
-            <div class="neg-row">
-              <label class="neg-small"><input type="checkbox" name="neg-entry-reveal" /> Reveal entry to players</label>
-            </div>
-            <div class="neg-row">
-              <label class="neg-small"><input type="checkbox" name="neg-post-chat" /> {{localize "NEGOTIATION.Actions.PostToChat"}}</label>
+              <label class="neg-small"><input type="checkbox" name="neg-test-roll-visible" checked /> Total visible to players</label>
             </div>
 
-            <div class="neg-muted neg-small neg-arg-preview"></div>
+            <div class="form-group">
+              <label>Interest Δ</label>
+              <input type="number" name="neg-test-interest" value="0" />
+            </div>
+            <div class="form-group">
+              <label>Patience Δ</label>
+              <input type="number" name="neg-test-patience" value="0" />
+            </div>
+
+            <div class="neg-row">
+              <label class="neg-small"><input type="checkbox" name="neg-test-reveal" /> Reveal entry to players</label>
+            </div>
             <hr />
-            <button type="button" class="neg-action" data-action="addArgumentEntry">
-              <i class="fa-solid fa-plus"></i> {{localize "NEGOTIATION.Actions.AddArgument"}}
+            <button type="button" class="neg-action" data-action="addTestEntry">
+              <i class="fa-solid fa-plus"></i> {{localize "NEGOTIATION.Actions.AddTest"}}
             </button>
           </div>
         </div>
@@ -342,7 +305,6 @@
         <hr />
         <div class="neg-row">
           <strong>{{localize "NEGOTIATION.Actions.AddReveal"}}</strong>
-          <span class="neg-muted neg-small">(Discovery test)</span>
         </div>
         <div class="neg-grid">
           <div>
@@ -362,29 +324,37 @@
                 {{/each}}
               </select>
             </div>
-            <div class="neg-row">
-              <label class="neg-small"><input type="checkbox" name="neg-disc-entry-reveal" /> Reveal discovered detail to players</label>
-            </div>
           </div>
           <div>
             <div class="form-group">
-              <label>{{localize "NEGOTIATION.Fields.Roll"}}</label>
-              <select name="neg-disc-roll-mode">
-                <option value="none">{{localize "NEGOTIATION.RollMode.None"}}</option>
-                <option value="manualTotal">{{localize "NEGOTIATION.RollMode.ManualTotal"}}</option>
-                <option value="foundryRoll">{{localize "NEGOTIATION.RollMode.FoundryRoll"}}</option>
+              <label>Kind</label>
+              <select name="neg-disc-kind">
+                <option value="motivation">{{localize "NEGOTIATION.Fields.Motivations"}}</option>
+                <option value="pitfall">{{localize "NEGOTIATION.Fields.Pitfalls"}}</option>
               </select>
             </div>
             <div class="form-group">
-              <label>Formula</label>
-              <input type="text" name="neg-disc-roll-formula" placeholder="e.g. 2d10+Presence" />
+              <label>{{localize "NEGOTIATION.Fields.Motivations"}}</label>
+              <select name="neg-disc-motivation">
+                {{#each motivationOptions}}
+                <option value="{{this.id}}">{{this.label}}</option>
+                {{/each}}
+              </select>
             </div>
             <div class="form-group">
-              <label>Total</label>
-              <input type="number" name="neg-disc-roll-total" />
+              <label>{{localize "NEGOTIATION.Fields.Pitfalls"}}</label>
+              <select name="neg-disc-pitfall">
+                {{#each pitfallOptions}}
+                <option value="{{this.id}}">{{this.label}}</option>
+                {{/each}}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>{{localize "NEGOTIATION.Fields.DetailsGM"}}</label>
+              <textarea name="neg-disc-details"></textarea>
             </div>
             <div class="neg-row">
-              <label class="neg-small"><input type="checkbox" name="neg-disc-roll-visible" checked /> Roll visible to players</label>
+              <label class="neg-small"><input type="checkbox" name="neg-disc-reveal" /> Reveal to players</label>
             </div>
             <button type="button" class="neg-action" data-action="addDiscoveryEntry">
               <i class="fa-solid fa-plus"></i> {{localize "NEGOTIATION.Actions.AddReveal"}}
@@ -411,42 +381,6 @@
           <i class="fa-solid fa-plus"></i> {{localize "NEGOTIATION.Actions.AddNote"}}
         </button>
 
-        <hr />
-        <div class="neg-row">
-          <strong>{{localize "NEGOTIATION.Actions.AddAdjustment"}}</strong>
-        </div>
-        <div class="neg-grid">
-          <div>
-            <div class="form-group">
-              <label>Target (NPC)</label>
-              <select name="neg-adj-target">
-                {{#each npcOptions}}
-                <option value="{{this.id}}">{{this.label}}</option>
-                {{/each}}
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Interest Δ</label>
-              <input type="number" name="neg-adj-interest" value="0" />
-            </div>
-            <div class="form-group">
-              <label>Patience Δ</label>
-              <input type="number" name="neg-adj-patience" value="0" />
-            </div>
-          </div>
-          <div>
-            <div class="form-group">
-              <label>{{localize "NEGOTIATION.Fields.Summary"}}</label>
-              <input type="text" name="neg-adj-summary" placeholder="Reason" />
-            </div>
-            <div class="neg-row">
-              <label class="neg-small"><input type="checkbox" name="neg-adj-reveal" /> Reveal entry to players</label>
-            </div>
-            <button type="button" class="neg-action" data-action="addAdjustmentEntry">
-              <i class="fa-solid fa-plus"></i> {{localize "NEGOTIATION.Actions.AddAdjustment"}}
-            </button>
-          </div>
-        </div>
       </div>
       {{/if}}
 

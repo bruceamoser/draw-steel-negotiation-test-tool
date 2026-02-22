@@ -8,7 +8,7 @@
       "Overview": "Overview",
       "Participants": "Participants",
       "NpcProfile": "NPC Profile",
-      "Timeline": "Arguments / Timeline",
+      "Timeline": "Timeline",
       "Result": "Result",
       "Settings": "Settings"
     },
@@ -49,6 +49,7 @@
       "AddNpc": "Add NPC (no Actor)",
       "Remove": "Remove",
       "AddArgument": "Add Argument",
+      "AddTest": "Add Test Result",
       "AddNote": "Add Note",
       "AddReveal": "Add Reveal",
       "AddAdjustment": "Add Adjustment",

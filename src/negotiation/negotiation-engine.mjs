@@ -520,6 +520,11 @@ export function redactForViewer(state, viewer) {
     seg.entries = (seg.entries ?? []).filter((e) => !!e.isRevealedToPlayers).map((e) => {
       const ne = { ...e };
 
+      if (ne.test) {
+        ne.test = { ...ne.test, detailsGM: "" };
+        if (!showArgumentDetails) ne.test.summary = "";
+      }
+
       if (ne.argument) {
         ne.argument = { ...ne.argument, detailsGM: "" };
         if (!showArgumentDetails) {
@@ -587,6 +592,83 @@ function _ensureSegment(next, options = {}) {
   const seg = _currentSegment(next);
   seg.entries ??= [];
   return seg;
+}
+
+/**
+ * Add a test result entry (manual tracking).
+ * This is intentionally lightweight: the GM records a summary, optional total, and manual deltas.
+ */
+export function addTestEntry(state, payload, options = {}) {
+  const next = _clone(state);
+  next.npcStateByParticipantId ??= {};
+  const seg = _ensureSegment(next, options);
+
+  const actorId = payload.actorParticipantId ?? "";
+  const targetId = payload.targetNpcParticipantId ?? "";
+  const target = _getParticipant(next, targetId);
+  const npc = _getNpcState(next, targetId);
+  if (!target || target.kind !== "npc" || !npc) {
+    return { nextState: next, entry: null, effectsApplied: [] };
+  }
+
+  const entryVisible = !!payload.isRevealedToPlayers;
+  const vis = next?.setup?.visibility ?? {};
+  const showInterest = vis.showInterest ?? "value";
+  const showPatience = vis.showPatience ?? "value";
+
+  const interestDelta = Number(payload.interestDelta ?? 0);
+  const patienceDelta = Number(payload.patienceDelta ?? 0);
+
+  const effectsApplied = [];
+  if (Number.isFinite(interestDelta) && interestDelta !== 0) {
+    effectsApplied.push({
+      stat: "interest",
+      delta: interestDelta,
+      appliedToNpcParticipantId: targetId,
+      reason: "test",
+      visibleToPlayers: entryVisible && showInterest !== "hidden",
+    });
+  }
+  if (Number.isFinite(patienceDelta) && patienceDelta !== 0) {
+    effectsApplied.push({
+      stat: "patience",
+      delta: patienceDelta,
+      appliedToNpcParticipantId: targetId,
+      reason: "test",
+      visibleToPlayers: entryVisible && showPatience !== "hidden",
+    });
+  }
+
+  const totalRaw = payload.rollTotal;
+  const rollTotal = (totalRaw === "" || totalRaw === undefined || totalRaw === null) ? null : Number(totalRaw);
+  const rollVisible = !!payload.rollVisibleToPlayers;
+
+  const entry = {
+    id: _safeId(options.idFn),
+    timestampIso: _nowIso(),
+    actorParticipantId: actorId,
+    targetNpcParticipantId: targetId,
+    entryType: "test",
+    test: {
+      summary: String(payload.summary ?? ""),
+      detailsGM: String(payload.detailsGM ?? ""),
+    },
+    roll: (rollTotal === null)
+      ? null
+      : {
+        mode: "manualTotal",
+        formula: "",
+        total: rollTotal,
+        tier: null,
+        visibleToPlayers: rollVisible,
+      },
+    effects: effectsApplied,
+    isRevealedToPlayers: entryVisible,
+  };
+
+  seg.entries.push(entry);
+  const after = applyEffects(next, effectsApplied);
+  return { nextState: after, entry, effectsApplied };
 }
 
 /**
@@ -696,45 +778,48 @@ export function addDiscoveryEntry(state, rules, payload, options = {}) {
     return { nextState: next, entry: null, effectsApplied: [] };
   }
 
-  const rollMode = payload.roll?.mode ?? "none";
-  const rollTotal = (rollMode === "none") ? null : (payload.roll?.total ?? null);
-  let tier = computeTier(rules, rollTotal);
-  if (!tier) tier = 2;
-
-  const discovery = rules?.discoveryTest?.byTier?.[tier] ?? {};
-  const patienceDelta = Number(discovery.patienceDelta ?? 0);
-  const learns = discovery.learns ?? "none";
   const entryVisible = !!payload.isRevealedToPlayers;
+  const revealToPlayers = !!payload.revealToPlayers;
 
-  let revealed = { kind: "", id: "", label: "" };
-  if (learns === "one") {
-    const mot = (npc.motivations ?? []).find((m) => m && !m.isRevealed);
-    const pit = (npc.pitfalls ?? []).find((p) => p && !p.isRevealed);
-    if (mot) {
-      mot.isRevealed = !!payload.revealToPlayers;
-      npc.discovered ??= { motivations: [], pitfalls: [] };
-      if (!npc.discovered.motivations.includes(mot.id)) npc.discovered.motivations.push(mot.id);
-      revealed = { kind: "motivation", id: mot.id, label: mot.label };
-    } else if (pit) {
-      pit.isRevealed = !!payload.revealToPlayers;
-      npc.discovered ??= { motivations: [], pitfalls: [] };
-      if (!npc.discovered.pitfalls.includes(pit.id)) npc.discovered.pitfalls.push(pit.id);
-      revealed = { kind: "pitfall", id: pit.id, label: pit.label };
+  const kind = String(payload.kind ?? "").trim();
+  const detailId = String(payload.detailId ?? "").trim();
+
+  let label = String(payload.label ?? "").trim();
+  if (!label && detailId) {
+    if (kind === "motivation") {
+      label = (rules?.motivations ?? []).find((m) => m?.id === detailId)?.label ?? "";
+    } else if (kind === "pitfall") {
+      label = (rules?.pitfalls ?? []).find((p) => p?.id === detailId)?.label ?? "";
     }
   }
 
-  const vis = next?.setup?.visibility ?? {};
-  const showPatience = vis.showPatience ?? "value";
-  const effectsApplied = [];
-  if (Number.isFinite(patienceDelta) && patienceDelta !== 0) {
-    effectsApplied.push({
-      stat: "patience",
-      delta: patienceDelta,
-      appliedToNpcParticipantId: targetId,
-      reason: "discovery",
-      visibleToPlayers: entryVisible && showPatience !== "hidden",
-    });
+  // Optionally attach the revealed detail to the NPC profile if it's not already present.
+  npc.motivations ??= [];
+  npc.pitfalls ??= [];
+  npc.discovered ??= { motivations: [], pitfalls: [] };
+
+  if (kind === "motivation" && detailId) {
+    let m = npc.motivations.find((x) => x?.id === detailId);
+    if (!m) {
+      m = { id: detailId, label, isRevealed: false };
+      npc.motivations.push(m);
+    }
+    m.label = m.label || label;
+    m.isRevealed = revealToPlayers;
+    if (!npc.discovered.motivations.includes(detailId)) npc.discovered.motivations.push(detailId);
   }
+  if (kind === "pitfall" && detailId) {
+    let p = npc.pitfalls.find((x) => x?.id === detailId);
+    if (!p) {
+      p = { id: detailId, label, isRevealed: false };
+      npc.pitfalls.push(p);
+    }
+    p.label = p.label || label;
+    p.isRevealed = revealToPlayers;
+    if (!npc.discovered.pitfalls.includes(detailId)) npc.discovered.pitfalls.push(detailId);
+  }
+
+  const effectsApplied = [];
 
   const entry = {
     id: _safeId(options.idFn),
@@ -743,23 +828,16 @@ export function addDiscoveryEntry(state, rules, payload, options = {}) {
     targetNpcParticipantId: targetId,
     entryType: "reveal",
     reveal: {
-      kind: revealed.kind,
-      id: revealed.id,
-      label: revealed.label,
+      kind,
+      id: detailId,
+      label,
       detailsGM: String(payload.detailsGM ?? ""),
     },
-    roll: {
-      mode: rollMode,
-      formula: payload.roll?.formula ?? "",
-      total: rollTotal,
-      tier,
-      visibleToPlayers: !!payload.roll?.visibleToPlayers,
-    },
-    effects: effectsApplied,
+    roll: null,
+    effects: [],
     isRevealedToPlayers: entryVisible,
   };
 
   seg.entries.push(entry);
-  const after = applyEffects(next, effectsApplied);
-  return { nextState: after, entry, effectsApplied };
+  return { nextState: next, entry, effectsApplied };
 }

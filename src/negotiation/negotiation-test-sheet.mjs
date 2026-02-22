@@ -6,11 +6,9 @@ import { MODULE_ID } from "../config.mjs";
 import { negotiationRules_v101b } from "./rules/draw-steel-v1.01b.mjs";
 import {
   addParticipant,
-  addArgumentEntry,
+  addTestEntry,
   addNoteEntry,
-  addAdjustmentEntry,
   addDiscoveryEntry,
-  previewArgumentEntry,
   advanceStructure,
   startNegotiation,
   evaluateEndConditions,
@@ -19,7 +17,6 @@ import {
   redactForViewer,
 } from "./negotiation-engine.mjs";
 import { getRulesProfile } from "./negotiation-state.mjs";
-import { postArgumentToChat, postSummaryToChat } from "./negotiation-chat.mjs";
 
 const ItemSheetV1 = foundry.appv1?.sheets?.ItemSheet ?? ItemSheet;
 
@@ -113,9 +110,8 @@ export class NegotiationTestSheet extends ItemSheetV1 {
         const effectsText = (e.effects ?? []).map((x) => `${x.stat} ${x.delta > 0 ? "+" : ""}${x.delta}`).join(", ");
 
         let summary = "";
-        if (e.entryType === "argument") summary = e.argument?.summary ?? "";
+        if (e.entryType === "test") summary = e.test?.summary ?? "";
         else if (e.entryType === "note") summary = e.note?.summary ?? "";
-        else if (e.entryType === "adjustment") summary = e.adjustment?.summary ?? "";
         else if (e.entryType === "reveal") {
           const k = e.reveal?.kind;
           const label = e.reveal?.label;
@@ -138,8 +134,6 @@ export class NegotiationTestSheet extends ItemSheetV1 {
       ? (rules?.offersByInterest?.[Number(((this.item.system.npcStateByParticipantId ?? {})[outcome.npcId]?.interest?.value) ?? 0)]?.label
         ?? outcome.outcomeId)
       : "";
-
-    const argumentTypeOptions = (rules?.argumentTypes ?? negotiationRules_v101b.argumentTypes).map((t) => ({ id: t.id, label: t.label }));
     const motivationOptions = (rules?.motivations ?? negotiationRules_v101b.motivations).map((m) => ({ id: m.id, label: m.label }));
     const pitfallOptions = (rules?.pitfalls ?? negotiationRules_v101b.pitfalls).map((p) => ({ id: p.id, label: p.label }));
 
@@ -156,7 +150,6 @@ export class NegotiationTestSheet extends ItemSheetV1 {
       npcSummaries,
       timeline,
       outcomeLabel,
-      argumentTypeOptions,
       motivationOptions,
       pitfallOptions,
     };
@@ -172,54 +165,6 @@ export class NegotiationTestSheet extends ItemSheetV1 {
 
     // Enable Actor drag/drop on the sheet.
     html.on("drop", this.#onDrop.bind(this));
-
-    // Argument preview.
-    const update = () => this.#updateArgumentPreview(html[0] ?? html);
-    html.find('select[name="neg-arg-actor"], select[name="neg-arg-target"], select[name="neg-arg-type"], select[name="neg-arg-motivation"], select[name="neg-arg-pitfall"], select[name="neg-roll-mode"], input[name="neg-roll-total"], input[name="neg-roll-formula"]').on("input change", update);
-    update();
-  }
-
-  #updateArgumentPreview(root) {
-    const container = root?.querySelector?.(".neg-arg-preview");
-    if (!container) return;
-    if (!game.user.isGM) {
-      container.textContent = "";
-      return;
-    }
-
-    const actorId = root.querySelector('select[name="neg-arg-actor"]')?.value;
-    const targetId = root.querySelector('select[name="neg-arg-target"]')?.value;
-    const argTypeId = root.querySelector('select[name="neg-arg-type"]')?.value;
-    const claimedMotivationId = root.querySelector('select[name="neg-arg-motivation"]')?.value || null;
-    const triggeredPitfallId = root.querySelector('select[name="neg-arg-pitfall"]')?.value || null;
-    const rollMode = root.querySelector('select[name="neg-roll-mode"]')?.value ?? "none";
-    const totalStr = root.querySelector('input[name="neg-roll-total"]')?.value;
-    const total = totalStr === "" || totalStr === undefined ? null : Number(totalStr);
-
-    const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
-    const { tier, effectsApplied } = previewArgumentEntry(
-      this.item.system,
-      rules,
-      {
-        actorParticipantId: actorId,
-        targetNpcParticipantId: targetId,
-        argumentTypeId: argTypeId,
-        claimedMotivationId,
-        triggeredPitfallId,
-        roll: { mode: rollMode, total, visibleToPlayers: true },
-        isRevealedToPlayers: true,
-      },
-      { idFn: () => foundry.utils.randomID() },
-    );
-
-    if (!tier) {
-      container.textContent = "";
-      return;
-    }
-    const effectsText = (effectsApplied ?? [])
-      .map((e) => `${e.stat} ${e.delta > 0 ? "+" : ""}${e.delta}`)
-      .join(", ");
-    container.textContent = `Preview — Tier ${tier}${effectsText ? `; ${effectsText}` : ""}`;
   }
 
   async #onDrop(event) {
@@ -268,12 +213,10 @@ export class NegotiationTestSheet extends ItemSheetV1 {
         return this.#start();
       case "advanceStructure":
         return this.#advance();
-      case "addArgumentEntry":
-        return this.#addArgument();
+      case "addTestEntry":
+        return this.#addTest();
       case "addNoteEntry":
         return this.#addNote();
-      case "addAdjustmentEntry":
-        return this.#addAdjustment();
       case "addDiscoveryEntry":
         return this.#addDiscovery();
       case "addNpcMotivation":
@@ -286,8 +229,6 @@ export class NegotiationTestSheet extends ItemSheetV1 {
         return this.#removeNpcPitfall(event.currentTarget.dataset.index);
       case "resolveNegotiation":
         return this.#resolve();
-      case "postSummary":
-        return this.#postSummary();
       default:
         return;
     }
@@ -323,56 +264,34 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     await this.item.update({ system: next });
   }
 
-  async #addArgument() {
+  async #addTest() {
     const root = this.element?.[0] ?? this.element;
     if (!root) return;
 
-    const actorId = root.querySelector('select[name="neg-arg-actor"]')?.value;
-    const targetId = root.querySelector('select[name="neg-arg-target"]')?.value;
-    const argTypeId = root.querySelector('select[name="neg-arg-type"]')?.value;
-    const summary = root.querySelector('input[name="neg-arg-summary"]')?.value ?? "";
-    const detailsGM = root.querySelector('textarea[name="neg-arg-details"]')?.value ?? "";
-    const rollMode = root.querySelector('select[name="neg-roll-mode"]')?.value ?? "none";
-    const formula = root.querySelector('input[name="neg-roll-formula"]')?.value ?? "";
-    const totalStr = root.querySelector('input[name="neg-roll-total"]')?.value;
+    const actorId = root.querySelector('select[name="neg-test-actor"]')?.value;
+    const targetId = root.querySelector('select[name="neg-test-target"]')?.value;
+    const summary = root.querySelector('input[name="neg-test-summary"]')?.value ?? "";
+    const detailsGM = root.querySelector('textarea[name="neg-test-details"]')?.value ?? "";
+    const totalStr = root.querySelector('input[name="neg-test-total"]')?.value;
     const total = totalStr === "" || totalStr === undefined ? null : Number(totalStr);
-    const rollVisible = !!root.querySelector('input[name="neg-roll-visible"]')?.checked;
-    const reveal = !!root.querySelector('input[name="neg-entry-reveal"]')?.checked;
-    const post = !!root.querySelector('input[name="neg-post-chat"]')?.checked;
-    const claimedMotivationId = root.querySelector('select[name="neg-arg-motivation"]')?.value || null;
-    const triggeredPitfallId = root.querySelector('select[name="neg-arg-pitfall"]')?.value || null;
+    const rollVisible = !!root.querySelector('input[name="neg-test-roll-visible"]')?.checked;
+    const interestDelta = Number(root.querySelector('input[name="neg-test-interest"]')?.value ?? 0);
+    const patienceDelta = Number(root.querySelector('input[name="neg-test-patience"]')?.value ?? 0);
+    const reveal = !!root.querySelector('input[name="neg-test-reveal"]')?.checked;
 
-    let finalTotal = total;
-    let finalFormula = formula;
-    if (rollMode === "foundryRoll" && formula) {
-      const roll = await (new Roll(formula)).evaluate({ async: true });
-      finalTotal = roll.total;
-      finalFormula = roll.formula;
-    }
-
-    const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
-    const { nextState, entry } = addArgumentEntry(this.item.system, rules, {
+    const { nextState } = addTestEntry(this.item.system, {
       actorParticipantId: actorId,
       targetNpcParticipantId: targetId,
-      argumentTypeId: argTypeId,
       summary,
       detailsGM,
-      claimedMotivationId,
-      triggeredPitfallId,
-      roll: {
-        mode: rollMode,
-        formula: finalFormula,
-        total: finalTotal,
-        visibleToPlayers: rollVisible,
-      },
+      rollTotal: total,
+      rollVisibleToPlayers: rollVisible,
+      interestDelta,
+      patienceDelta,
       isRevealedToPlayers: reveal,
     }, { idFn: () => foundry.utils.randomID() });
 
     await this.item.update({ system: nextState });
-    if (post && entry) {
-      await postArgumentToChat(this.item, entry);
-      ui.notifications.info(game.i18n.localize("NEGOTIATION.Notify.Posted"));
-    }
   }
 
   async #addNote() {
@@ -392,62 +311,29 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     await this.item.update({ system: nextState });
   }
 
-  async #addAdjustment() {
-    const root = this.element?.[0] ?? this.element;
-    if (!root) return;
-
-    const targetId = root.querySelector('select[name="neg-adj-target"]')?.value;
-    const interestDelta = Number(root.querySelector('input[name="neg-adj-interest"]')?.value ?? 0);
-    const patienceDelta = Number(root.querySelector('input[name="neg-adj-patience"]')?.value ?? 0);
-    const summary = root.querySelector('input[name="neg-adj-summary"]')?.value ?? "";
-    const reveal = !!root.querySelector('input[name="neg-adj-reveal"]')?.checked;
-
-    const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
-    const { nextState } = addAdjustmentEntry(this.item.system, rules, {
-      targetNpcParticipantId: targetId,
-      interestDelta,
-      patienceDelta,
-      summary,
-      isRevealedToPlayers: reveal,
-    }, { idFn: () => foundry.utils.randomID() });
-
-    await this.item.update({ system: nextState });
-  }
-
   async #addDiscovery() {
     const root = this.element?.[0] ?? this.element;
     if (!root) return;
 
     const actorId = root.querySelector('select[name="neg-disc-actor"]')?.value;
     const targetId = root.querySelector('select[name="neg-disc-target"]')?.value;
-    const rollMode = root.querySelector('select[name="neg-disc-roll-mode"]')?.value ?? "none";
-    const formula = root.querySelector('input[name="neg-disc-roll-formula"]')?.value ?? "";
-    const totalStr = root.querySelector('input[name="neg-disc-roll-total"]')?.value;
-    const total = totalStr === "" || totalStr === undefined ? null : Number(totalStr);
-    const rollVisible = !!root.querySelector('input[name="neg-disc-roll-visible"]')?.checked;
-    const revealEntry = !!root.querySelector('input[name="neg-disc-entry-reveal"]')?.checked;
-
-    let finalTotal = total;
-    let finalFormula = formula;
-    if (rollMode === "foundryRoll" && formula) {
-      const roll = await (new Roll(formula)).evaluate({ async: true });
-      finalTotal = roll.total;
-      finalFormula = roll.formula;
-    }
+    const kind = root.querySelector('select[name="neg-disc-kind"]')?.value ?? "";
+    const motivationId = root.querySelector('select[name="neg-disc-motivation"]')?.value ?? "";
+    const pitfallId = root.querySelector('select[name="neg-disc-pitfall"]')?.value ?? "";
+    const detailId = kind === "pitfall" ? pitfallId : motivationId;
+    const detailsGM = root.querySelector('textarea[name="neg-disc-details"]')?.value ?? "";
+    const reveal = !!root.querySelector('input[name="neg-disc-reveal"]')?.checked;
 
     const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
     const { nextState } = addDiscoveryEntry(this.item.system, rules, {
       actorParticipantId: actorId,
       targetNpcParticipantId: targetId,
-      revealToPlayers: revealEntry,
-      detailsGM: "",
-      roll: {
-        mode: rollMode,
-        formula: finalFormula,
-        total: finalTotal,
-        visibleToPlayers: rollVisible,
-      },
-      isRevealedToPlayers: revealEntry,
+      kind,
+      detailId,
+      label: "",
+      detailsGM,
+      revealToPlayers: reveal,
+      isRevealedToPlayers: reveal,
     }, { idFn: () => foundry.utils.randomID() });
 
     await this.item.update({ system: nextState });
@@ -472,11 +358,6 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     system.resolution.summaryGM = renderGmSummary(system, rules);
 
     await this.item.update({ system });
-  }
-
-  async #postSummary() {
-    await postSummaryToChat(this.item);
-    ui.notifications.info(game.i18n.localize("NEGOTIATION.Notify.Posted"));
   }
 
   async #copySummary() {
