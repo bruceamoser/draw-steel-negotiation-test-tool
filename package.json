@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "build": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1",
+    "build:clean": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1 -Clean",
+    "release:draft": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Draft",
+    "release": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1"
   }
 }
