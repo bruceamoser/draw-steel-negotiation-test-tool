@@ -179,6 +179,41 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     };
   }
 
+  /**
+   * Override _getSubmitData to prevent Foundry's form serializer from writing
+   * npcStateByParticipantId dot-paths that only contain `isRevealed` (stripping
+   * the `id` and `label` fields not present as form inputs).
+   * Instead we rebuild the full object from live item data + current checkboxes.
+   */
+  _getSubmitData(updateData = {}) {
+    const formData = super._getSubmitData(updateData);
+
+    // Collect and remove any keys Foundry serialised for npcStateByParticipantId
+    const npcKeys = Object.keys(formData).filter((k) => k.startsWith("system.npcStateByParticipantId."));
+    if (npcKeys.length === 0) return formData;
+    for (const k of npcKeys) delete formData[k];
+
+    // Rebuild from live item data, patching only isRevealed from checkboxes.
+    const npcState = foundry.utils.deepClone(this.item.system?.npcStateByParticipantId ?? {});
+    const root = this.element?.[0] ?? this.element;
+    if (root) {
+      for (const cb of root.querySelectorAll('input[type="checkbox"][name^="system.npcStateByParticipantId."]')) {
+        // name format: system.npcStateByParticipantId.{npcId}.{motivations|pitfalls}.{idx}.isRevealed
+        const stripped = cb.name.slice("system.npcStateByParticipantId.".length);
+        const [npcId, listKey, idxStr, field] = stripped.split(".");
+        const idx = Number(idxStr);
+        if (!npcId || !listKey || !Number.isInteger(idx) || !field) continue;
+        npcState[npcId] ??= {};
+        const list = _toArray(npcState[npcId][listKey]);
+        if (list[idx]) list[idx][field] = cb.checked;
+        npcState[npcId][listKey] = list;
+      }
+    }
+
+    formData["system.npcStateByParticipantId"] = npcState;
+    return formData;
+  }
+
   activateListeners(html) {
     super.activateListeners(html);
     html.find("button[data-action]").on("click", this.#onAction.bind(this));
