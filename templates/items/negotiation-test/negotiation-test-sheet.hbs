@@ -23,34 +23,30 @@
 
         <div class="neg-section">
           <h3 class="neg-section-title">Overview</h3>
-          <div class="neg-editor-wrap">
-            {{editor enrichedOverview target="system.setup.overview"
-              editable=isGM engine="prosemirror"}}
+          <div class="neg-editor-wrap" data-field="system.setup.overview">
+            {{#unless isGM}}<div class="editor-content">{{{enrichedOverview}}}</div>{{/unless}}
           </div>
         </div>
 
         <div class="neg-outcomes-grid">
           <div class="neg-section neg-outcome neg-outcome--success">
             <h4 class="neg-section-title">Success</h4>
-            <div class="neg-editor-wrap">
-              {{editor enrichedOutcomeSuccess target="system.setup.outcomes.success"
-                editable=isGM engine="prosemirror"}}
+            <div class="neg-editor-wrap" data-field="system.setup.outcomes.success">
+              {{#unless isGM}}<div class="editor-content">{{{enrichedOutcomeSuccess}}}</div>{{/unless}}
             </div>
           </div>
 
           <div class="neg-section neg-outcome neg-outcome--partial">
             <h4 class="neg-section-title">Partial Success</h4>
-            <div class="neg-editor-wrap">
-              {{editor enrichedOutcomePartialSuccess target="system.setup.outcomes.partialSuccess"
-                editable=isGM engine="prosemirror"}}
+            <div class="neg-editor-wrap" data-field="system.setup.outcomes.partialSuccess">
+              {{#unless isGM}}<div class="editor-content">{{{enrichedOutcomePartialSuccess}}}</div>{{/unless}}
             </div>
           </div>
 
           <div class="neg-section neg-outcome neg-outcome--failure">
             <h4 class="neg-section-title">Failure</h4>
-            <div class="neg-editor-wrap">
-              {{editor enrichedOutcomeFailure target="system.setup.outcomes.failure"
-                editable=isGM engine="prosemirror"}}
+            <div class="neg-editor-wrap" data-field="system.setup.outcomes.failure">
+              {{#unless isGM}}<div class="editor-content">{{{enrichedOutcomeFailure}}}</div>{{/unless}}
             </div>
           </div>
         </div>
@@ -197,7 +193,7 @@
               {{#if ../isGM}}
               <label class="neg-checkbox-label">
                 <input type="checkbox"
-                  name="system.npcStateByParticipantId.{{../selectedNpc.id}}.motivations.{{@index}}.isRevealed"
+                  data-npc-id="{{../selectedNpc.id}}" data-list="motivations" data-idx="{{@index}}"
                   {{#if this.isRevealed}}checked{{/if}} />
                 Revealed
               </label>
@@ -214,7 +210,7 @@
 
           {{#if isGM}}
           <div class="neg-add-row">
-            <select name="neg-add-motivation">
+            <select data-key="neg-add-motivation">
               {{#each motivationOptions}}
               <option value="{{this.id}}">{{this.label}}</option>
               {{/each}}
@@ -235,7 +231,7 @@
               {{#if ../isGM}}
               <label class="neg-checkbox-label">
                 <input type="checkbox"
-                  name="system.npcStateByParticipantId.{{../selectedNpc.id}}.pitfalls.{{@index}}.isRevealed"
+                  data-npc-id="{{../selectedNpc.id}}" data-list="pitfalls" data-idx="{{@index}}"
                   {{#if this.isRevealed}}checked{{/if}} />
                 Revealed
               </label>
@@ -252,7 +248,7 @@
 
           {{#if isGM}}
           <div class="neg-add-row">
-            <select name="neg-add-pitfall">
+            <select data-key="neg-add-pitfall">
               {{#each pitfallOptions}}
               <option value="{{this.id}}">{{this.label}}</option>
               {{/each}}
@@ -324,7 +320,7 @@
             <h4 class="neg-section-title">Add Argument</h4>
             <div class="neg-form-grid">
               <label>PC Acting</label>
-              <select name="neg-arg-actor">
+              <select data-key="neg-arg-actor">
                 <option value="">(select PC)</option>
                 {{#each pcOptions}}
                 <option value="{{this.id}}">{{this.label}}</option>
@@ -332,21 +328,21 @@
               </select>
 
               <label>Tier</label>
-              <select name="neg-arg-tier">
+              <select data-key="neg-arg-tier">
                 <option value="1">Tier 1 (≤11)</option>
                 <option value="2" selected>Tier 2 (12–16)</option>
                 <option value="3">Tier 3 (17+)</option>
               </select>
 
               <label>Argument Type</label>
-              <select name="neg-arg-type">
+              <select data-key="neg-arg-type">
                 {{#each argumentTypeOptions}}
                 <option value="{{this.id}}">{{this.label}}</option>
                 {{/each}}
               </select>
 
               <label>Motivation Used</label>
-              <select name="neg-arg-motivation">
+              <select data-key="neg-arg-motivation">
                 <option value="">— none —</option>
                 {{#each selectedNpc.motivations}}
                 <option value="{{this.id}}">{{this.label}}</option>
@@ -354,7 +350,7 @@
               </select>
 
               <label>Pitfall Triggered</label>
-              <select name="neg-arg-pitfall">
+              <select data-key="neg-arg-pitfall">
                 <option value="">— none —</option>
                 {{#each selectedNpc.pitfalls}}
                 <option value="{{this.id}}">{{this.label}}</option>
@@ -363,7 +359,7 @@
             </div>
             <div class="neg-form-footer">
               <label class="neg-checkbox-label">
-                <input type="checkbox" name="neg-arg-reveal" /> Reveal to players
+                <input type="checkbox" data-key="neg-arg-reveal" /> Reveal to players
               </label>
               <button type="button" class="neg-btn neg-btn--primary" data-action="addArgumentEntry">
                 <i class="fa-solid fa-plus"></i> Add Argument
@@ -376,7 +372,7 @@
             <h4 class="neg-section-title">Discover</h4>
             <div class="neg-form-grid">
               <label>PC Acting</label>
-              <select name="neg-reveal-actor">
+              <select data-key="neg-reveal-actor">
                 <option value="">(select PC)</option>
                 {{#each pcOptions}}
                 <option value="{{this.id}}">{{this.label}}</option>
@@ -384,7 +380,7 @@
               </select>
 
               <label>Tier</label>
-              <select name="neg-reveal-tier">
+              <select data-key="neg-reveal-tier">
                 <option value="1">Tier 1 (≤11)</option>
                 <option value="2" selected>Tier 2 (12–16)</option>
                 <option value="3">Tier 3 (17+)</option>
@@ -392,7 +388,7 @@
             </div>
             <div class="neg-form-footer">
               <label class="neg-checkbox-label">
-                <input type="checkbox" name="neg-reveal-to-players" />
+                <input type="checkbox" data-key="neg-reveal-to-players" />
                 Reveal discovered detail to players
               </label>
               <button type="button" class="neg-btn neg-btn--primary" data-action="addRevealEntry">

@@ -1,8 +1,8 @@
-# Draw Steel — Negotiation Test Tool
+﻿# Draw Steel — Negotiation Test Tool
 
 [![Foundry VTT](https://img.shields.io/badge/Foundry_VTT-v13-orange?style=flat-square)](https://foundryvtt.com)
 [![System](https://img.shields.io/badge/System-Draw_Steel-blue?style=flat-square)](https://github.com/MetaMorphic-Digital/draw-steel)
-[![Version](https://img.shields.io/badge/version-0.1.2-brightgreen?style=flat-square)](https://github.com/bruceamoser/draw-steel-negotiation-test-tool/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.3.0-brightgreen?style=flat-square)](https://github.com/bruceamoser/draw-steel-negotiation-test-tool/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
 A [Foundry VTT](https://foundryvtt.com) module for the [Draw Steel](https://mcdmproductions.com) RPG system that adds a dedicated **Negotiation Test Item** — a persistent sheet for tracking participants, NPC Interest/Patience, arguments, discoveries, and resolution.
@@ -15,14 +15,14 @@ Negotiation Test Items live in the World Items directory, so they benefit from F
 
 | Feature | Detail |
 |---|---|
-| **Negotiation Test Item type** | Custom `Item` sub-type registered against the Draw Steel system; appears in the Create Item dialog with the label “Negotiation Test” |
-| **Participants** | Add PCs/NPCs by **drag & drop** of Actors; or create an NPC participant without an Actor |
-| **NPC Profile** | Track **Interest** and **Patience**, manage NPC **Motivations** and **Pitfalls**, and reveal individual motivations/pitfalls over time |
-| **Timeline / entries** | Log **Arguments**, **Notes**, **Adjustments**, and **Discovery** reveals; entries support controlled player visibility |
-| **Optional rolls** | Record no roll, a manual total, or have Foundry evaluate a roll formula; tiers and effects compute from totals |
-| **Chat cards** | Post individual argument entries and post a negotiation summary to chat (public + GM whisper) |
-| **Player redaction** | Players viewing the item sheet see a redacted view based on the visibility settings and what you’ve revealed |
-| **Outcome & summaries** | Resolve the negotiation, compute an outcome label, and generate both public and GM summary text |
+| **Negotiation Test Item type** | Custom `Item` sub-type registered against the Draw Steel system; appears in the Create Item dialog |
+| **4-tab ApplicationV2 sheet** | Overview, Participants, NPC Profile, and Actions tabs -- built on Foundry v13 `HandlebarsApplicationMixin(ItemSheetV2)` |
+| **Rich text editors** | Overview, Success, Partial Success, and Failure outcome fields use live ProseMirror editors that save on blur |
+| **Participants** | Add PCs/NPCs by drag & drop of Actors; or create placeholder participants without an Actor link |
+| **NPC Profile** | Track Interest and Patience (with min/max range), manage Motivations and Pitfalls, reveal each to players individually |
+| **Arguments & Discoveries** | Log argument entries (PC, tier, type, motivation/pitfall claimed) and discovery entries with full timeline display |
+| **Player redaction** | Players see a redacted view; motivations/pitfalls and action log entries are only shown once revealed |
+| **Outcome & summaries** | Start, Stop, and Resolve the negotiation; copy the formatted summary to clipboard |
 
 ---
 
@@ -43,20 +43,17 @@ This module only initialises in worlds using the Draw Steel game system.
 
 1. In Foundry VTT, go to **Add-on Modules → Install Module**.
 2. Paste the manifest URL into the **Manifest URL** field:
-	 ```
-	 https://github.com/bruceamoser/draw-steel-negotiation-test-tool/releases/latest/download/module.json
-	 ```
+   ```
+   https://github.com/bruceamoser/draw-steel-negotiation-test-tool/releases/latest/download/module.json
+   ```
 3. Click **Install**.
 4. Enable **Draw Steel — Negotiation Test Tool** in your world under **Settings → Manage Modules**.
-
-> Note: GitHub Releases must include `module.json` as a release asset for this install method. If your release only includes the zip, use the Manual install below.
 
 ### Manual
 
 1. Download the zip from the [latest release](https://github.com/bruceamoser/draw-steel-negotiation-test-tool/releases/latest).
-2. Extract the zip into your Foundry `Data/modules/` directory.
-	 - The folder should be named `draw-steel-negotiation/`.
-3. Restart Foundry VTT (or reload) and enable the module.
+2. Extract into your Foundry `Data/modules/` directory (folder name: `draw-steel-negotiation/`).
+3. Restart Foundry VTT and enable the module.
 
 ---
 
@@ -66,80 +63,75 @@ This module only initialises in worlds using the Draw Steel game system.
 
 As GM, open the **Items** sidebar tab and click **Create Item**. Choose the type **Negotiation Test** and give it a name.
 
-You can also create one via macro:
+### 2 — Add Participants (Participants tab)
 
-```js
-game.modules.get("draw-steel-negotiation").api.createNegotiationTest({
-	name: "My Negotiation",
-	renderSheet: true,
-});
-```
+- **Drag & drop** PC and NPC Actors from the Actor sidebar onto the sheet.
+- Or click **Add PC** / **Add NPC** to create a participant manually (without an Actor link).
+- Participants appear in a table showing Name, Kind (PC/NPC), Role, and Active status.
+- Use the remove button to delete a participant row.
 
-### 2 — Add participants
+> Only one NPC participant is supported per negotiation.
 
-- Drag & drop PC and NPC Actors onto the item sheet.
-- Or click **Add NPC (no Actor)** to create a standalone NPC participant.
+### 3 — Write the Overview (Overview tab)
 
-### 3 — Configure stakes and context
+Click into any of the four rich-text editor fields:
 
-In the **Overview** tab:
+| Field | Purpose |
+|---|---|
+| **Overview** | Scene-setting narrative visible to the GM |
+| **Success** | What happens on a full success |
+| **Partial Success** | What happens on a partial success |
+| **Failure** | What happens on a failure |
 
-- Set **Success Stakes**, **Failure Stakes**, and **Public Context**.
-- (GM-only) Set **GM Context**.
-- Use **Start** to begin, **Next** to advance rounds/stages (if enabled), and **Resolve** to generate summaries.
-- Use **Post Summary** to send the result to chat.
+Content saves automatically when the editor loses focus. Players without GM access see read-only enriched HTML.
 
-### 4 — Maintain NPC profiles
+### 4 — Configure the NPC Profile (NPC Profile tab)
 
-In the **NPC Profile** tab (GM):
+- Set **Interest** and **Patience** values (shown with min/max range for context).
+- Use the dropdowns to **Add Motivations** and **Pitfalls** from the configured lists.
+- Toggle **Revealed** on each motivation or pitfall to control what players can see.
+- Use the remove button to delete individual entries.
 
-- Adjust **Interest** and **Patience**.
-- Add **Motivations** and **Pitfalls** from the configured lists.
-- Toggle **Revealed** per motivation/pitfall to control what players can see.
+### 5 — Run the Negotiation (Actions tab)
 
-### 5 — Log the negotiation in the Timeline
+**GM controls (top of tab):**
 
-In the **Arguments / Timeline** tab (GM):
+| Button | Effect |
+|---|---|
+| **Start** | Marks the negotiation as active |
+| **Stop** | Pauses the negotiation |
+| **Resolve** | Computes the final outcome based on Interest/Patience |
+| **Copy Summary** | Copies the formatted outcome summary to clipboard |
 
-- **Add Argument**
-	- Choose an actor (PC), target (NPC), and argument type.
-	- Optionally record a claimed motivation or triggered pitfall.
-	- Choose a roll mode:
-		- **None** (no total recorded)
-		- **Manual total** (you type the total)
-		- **Foundry roll** (you provide a formula like `2d10+Presence` and Foundry evaluates it)
-	- Toggle **Roll visible to players** and **Reveal entry to players**.
-	- Optionally **Post to Chat** to create a public argument card.
+**Add Argument form:**
 
-- **Add Reveal (Discovery test)**
-	- Records a discovery attempt against an NPC and can reveal a motivation/pitfall.
-	- Roll totals can be public or hidden, and the discovered detail can be immediately revealed or kept GM-only.
+- Choose the arguing **PC**, the **Tier** of the roll (1/2/3), **Argument Type**, **Motivation Used**, and **Pitfall Triggered**.
+- Check **Reveal to Players** to immediately show the entry in the player's action log.
+- Click **Add** to append the entry to the timeline.
 
-- **Add Note**
-	- Records a general note (public summary + GM details).
+**Add Discovery form:**
 
-- **Add Adjustment**
-	- Applies manual Interest/Patience deltas (useful for edge cases or director overrides) with an optional player-facing summary.
+- Choose the discovering **PC** and **Tier**.
+- Check **Reveal to Players** to show the entry.
+- Click **Add** to log the discovery.
 
-### 6 — Resolve and share
+**Action Log:**
 
-In the **Result** tab:
-
-- Review the computed outcome label.
-- Edit the generated **Public Summary** (and **GM Summary**, GM-only) if desired.
-
-Use **Post Summary** in the Overview tab to send:
-
-- A public summary to chat.
-- A GM-only whisper with extra details.
+- GM sees all entries; players see only entries marked as revealed.
+- Each entry shows the actor name, entry type, tier badge, and effects.
 
 ---
 
-## Player Visibility & Ownership
+## Player Visibility
 
-- Players can open the Negotiation Test item sheet if you grant them **Observer** (or higher) permission.
-- The **Settings → Visibility** options control what players see (NPC names, Interest/Patience display, argument details, roll totals).
-- Individual motivations/pitfalls and timeline entries also have **reveal** toggles.
+Players can open a Negotiation Test sheet if given **Observer** (or higher) permission on the item.
+
+When a player opens the sheet:
+
+- **Overview tab**: editors render as enriched rich text (not editable).
+- **NPC Profile tab**: motivations and pitfalls are hidden unless the GM has toggled **Revealed**.
+- **Actions tab**: only argument/discovery entries with **Reveal to Players** checked are shown.
+- The NPC's Interest and Patience values are always visible to players.
 
 ---
 
@@ -147,29 +139,21 @@ Use **Post Summary** in the Overview tab to send:
 
 ```bash
 npm install
-npm test
 ```
 
 ### Build a Foundry zip
-
-Creates a zip in `dist/` containing a top-level module folder matching `module.json` → `id`.
 
 ```bash
 npm run build
 npm run build:clean
 ```
 
-### Publish via GitHub Releases (gh CLI)
+### Publish via GitHub Releases
 
-Prereqs:
-
-- Install GitHub CLI: `gh`
-- Authenticate locally: `gh auth login`
-
-Then:
+Requires the [GitHub CLI](https://cli.github.com/) authenticated with `gh auth login`.
 
 ```bash
-npm run build
+npm run build:clean
 npm run release
 ```
 
@@ -177,12 +161,6 @@ Or create a draft release:
 
 ```bash
 npm run release:draft
-```
-
-You can pass a custom tag explicitly:
-
-```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Tag v0.1.0 -Draft
 ```
 
 ---

@@ -1,5 +1,5 @@
 /**
- * Negotiation Test Item Sheet
+ * Negotiation Test Item Sheet — ApplicationV2 (Foundry v13+)
  */
 
 import { MODULE_ID } from "../config.mjs";
@@ -8,7 +8,6 @@ import {
   addParticipant,
   addArgumentEntry,
   addDiscoveryEntry,
-  advanceStructure,
   startNegotiation,
   evaluateEndConditions,
   renderPublicSummary,
@@ -16,8 +15,6 @@ import {
   redactForViewer,
 } from "./negotiation-engine.mjs";
 import { getRulesProfile } from "./negotiation-state.mjs";
-
-const ItemSheetV1 = foundry.appv1?.sheets?.ItemSheet ?? ItemSheet;
 
 const _TextEditor = foundry.applications?.ux?.TextEditor?.implementation ?? TextEditor;
 
@@ -28,11 +25,6 @@ function _toArray(val) {
   if (Array.isArray(val)) return val.slice();
   if (typeof val === "object") return Object.values(val);
   return [];
-}
-
-function _currentSegment(system) {
-  const t = system.timeline ?? [];
-  return t.length ? t[t.length - 1] : null;
 }
 
 function _interestDisplay(system, npcState) {
@@ -51,46 +43,58 @@ function _patienceDisplay(system, npcState) {
   return String(npcState.patience.value ?? "");
 }
 
-export class NegotiationTestSheet extends ItemSheetV1 {
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      classes: ["negotiation-app", "negotiation-test-sheet"],
-      width: 820,
-      height: 700,
-      submitOnClose: true,
-      tabs: [{ navSelector: ".tabs", contentSelector: ".tab-content", initial: "overview" }],
-    });
-  }
+export class NegotiationTestSheet extends foundry.applications.api.HandlebarsApplicationMixin(foundry.applications.sheets.ItemSheetV2) {
 
-  get template() {
-    return `modules/${MODULE_ID}/templates/items/negotiation-test/negotiation-test-sheet.hbs`;
-  }
+  // ── ApplicationV2 static config ────────────────────────────────────────────
 
-  async getData(options = {}) {
-    const data = super.getData(options);
+  static DEFAULT_OPTIONS = {
+    classes: ["negotiation-app", "negotiation-test-sheet"],
+    window: { width: 820, height: 700, resizable: true },
+    form: { submitOnChange: true, closeOnSubmit: false },
+  };
 
-    // Migrate: participants created by old code can have blank IDs. Fix once, fire-and-forget.
-    if (game.user.isGM) {
-      const rawParticipants = this.item.system?.participants ?? [];
-      if (rawParticipants.some((p) => !p?.id)) {
-        const fixed = rawParticipants.map((p) => ({ ...p, id: p.id || foundry.utils.randomID() }));
-        this.item.update({ "system.participants": fixed }); // re-render happens automatically
+  static PARTS = {
+    form: {
+      template: `modules/${MODULE_ID}/templates/items/negotiation-test/negotiation-test-sheet.hbs`,
+      scrollable: [".tab-content"],
+    },
+  };
+
+  // ── Instance state ─────────────────────────────────────────────────────────
+
+  /** Currently active primary tab */
+  _activeTab = "overview";
+
+  /** Cached NPC participant id */
+  _selectedNpcId = null;
+
+  // ── Context preparation ────────────────────────────────────────────────────
+
+  async _prepareContext(options) {
+    const isGM = game.user.isGM;
+    const doc = this.document;
+
+    // Migrate: participants with blank IDs (created by old code). Fire-and-forget.
+    if (isGM) {
+      const raw = doc.system?.participants ?? [];
+      if (raw.some((p) => !p?.id)) {
+        const fixed = raw.map((p) => ({ ...p, id: p.id || foundry.utils.randomID() }));
+        doc.update({ "system.participants": fixed });
       }
     }
 
-    const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
-
-    const viewState = redactForViewer(this.item.system, { isGM: game.user.isGM });
-    const system = viewState;
+    const rules = getRulesProfile(doc.system?.setup?.rulesProfileId);
+    const system = redactForViewer(doc.system, { isGM });
 
     const enrichedOverview = await _TextEditor.enrichHTML(system?.setup?.overview ?? "", { async: true });
     const enrichedOutcomeSuccess = await _TextEditor.enrichHTML(system?.setup?.outcomes?.success ?? "", { async: true });
     const enrichedOutcomePartialSuccess = await _TextEditor.enrichHTML(system?.setup?.outcomes?.partialSuccess ?? "", { async: true });
     const enrichedOutcomeFailure = await _TextEditor.enrichHTML(system?.setup?.outcomes?.failure ?? "", { async: true });
 
-    const currentSeg = _currentSegment(system);
     const statusKey = system.resolution?.status ?? "notStarted";
-    const statusLabel = game.i18n.localize(`NEGOTIATION.Status.${statusKey.charAt(0).toUpperCase() + statusKey.slice(1)}`);
+    const statusLabel = game.i18n.localize(
+      `NEGOTIATION.Status.${statusKey.charAt(0).toUpperCase() + statusKey.slice(1)}`
+    );
 
     const participants = (system.participants ?? []).map((p, index) => ({ ...p, index }));
     const pcOptions = participants.filter((p) => p.kind === "pc").map((p) => ({ id: p.id, label: p.displayName }));
@@ -101,7 +105,9 @@ export class NegotiationTestSheet extends ItemSheetV1 {
 
     const selectedNpcState = selectedNpcId ? (system.npcStateByParticipantId ?? {})[selectedNpcId] : null;
     const selectedNpcParticipant = selectedNpcId ? (participants.find((p) => p.id === selectedNpcId) ?? null) : null;
-    const selectedNpcIndex = (selectedNpcParticipant && Number.isInteger(selectedNpcParticipant.index)) ? selectedNpcParticipant.index : null;
+    const selectedNpcIndex = (selectedNpcParticipant && Number.isInteger(selectedNpcParticipant.index))
+      ? selectedNpcParticipant.index : null;
+
     const selectedNpc = selectedNpcState ? {
       id: selectedNpcId,
       name: selectedNpcParticipant?.displayName ?? "NPC",
@@ -121,45 +127,39 @@ export class NegotiationTestSheet extends ItemSheetV1 {
       ...seg,
       entries: (seg.entries ?? []).map((e) => {
         const a = participants.find((p) => p.id === e.actorParticipantId);
-        const t = participants.find((p) => p.id === e.targetNpcParticipantId);
-        const effectsText = (e.effects ?? []).map((x) => `${x.stat} ${x.delta > 0 ? "+" : ""}${x.delta}`).join(", ");
-
+        const effectsText = (e.effects ?? [])
+          .map((x) => `${x.stat} ${x.delta > 0 ? "+" : ""}${x.delta}`).join(", ");
         let summary = "";
         if (e.entryType === "argument") summary = e.argument?.summary ?? "";
-        else if (e.entryType === "test") summary = e.test?.summary ?? "";
-        else if (e.entryType === "note") summary = e.note?.summary ?? "";
-        else if (e.entryType === "adjustment") summary = e.adjustment?.summary ?? "";
         else if (e.entryType === "reveal") {
           const k = e.reveal?.kind;
-          const label = e.reveal?.label;
-          summary = (k && label) ? `Revealed ${k}: ${label}` : "Discovery attempt";
+          const lbl = e.reveal?.label;
+          summary = (k && lbl) ? `Revealed ${k}: ${lbl}` : "Discovery attempt";
         }
-
-        return {
-          ...e,
-          actorName: a?.displayName ?? "",
-          targetName: t?.displayName ?? "",
-          summary,
-          rollTier: e.roll?.tier ?? null,
-          effectsText,
-        };
+        return { ...e, actorName: a?.displayName ?? "", summary, rollTier: e.roll?.tier ?? null, effectsText };
       }),
     }));
 
-    const outcome = evaluateEndConditions(this.item.system, rules);
+    const outcome = evaluateEndConditions(doc.system, rules);
     const outcomeLabel = outcome?.outcomeId
-      ? (rules?.offersByInterest?.[Number(((this.item.system.npcStateByParticipantId ?? {})[outcome.npcId]?.interest?.value) ?? 0)]?.label
-        ?? outcome.outcomeId)
+      ? (rules?.offersByInterest?.[
+          Number(((doc.system.npcStateByParticipantId ?? {})[outcome.npcId]?.interest?.value) ?? 0)
+        ]?.label ?? outcome.outcomeId)
       : "";
-    const motivationOptions = (rules?.motivations ?? negotiationRules_v101b.motivations).map((m) => ({ id: m.id, label: m.label }));
-    const pitfallOptions = (rules?.pitfalls ?? negotiationRules_v101b.pitfalls).map((p) => ({ id: p.id, label: p.label }));
-    const argumentTypeOptions = (rules?.argumentTypes ?? negotiationRules_v101b.argumentTypes).map((t) => ({ id: t.id, label: t.label }));
 
-    const isInProgress = (system.resolution?.status ?? "notStarted") === "inProgress";
+    const motivationOptions = (rules?.motivations ?? negotiationRules_v101b.motivations)
+      .map((m) => ({ id: m.id, label: m.label }));
+    const pitfallOptions = (rules?.pitfalls ?? negotiationRules_v101b.pitfalls)
+      .map((p) => ({ id: p.id, label: p.label }));
+    const argumentTypeOptions = (rules?.argumentTypes ?? negotiationRules_v101b.argumentTypes)
+      .map((t) => ({ id: t.id, label: t.label }));
+
+    const isInProgress = statusKey === "inProgress";
 
     return {
-      ...data,
-      isGM: game.user.isGM,
+      item: doc,
+      isGM,
+      isOwner: doc.isOwner,
       isInProgress,
       system,
       enrichedOverview,
@@ -167,7 +167,7 @@ export class NegotiationTestSheet extends ItemSheetV1 {
       enrichedOutcomePartialSuccess,
       enrichedOutcomeFailure,
       statusLabel,
-      currentSegmentLabel: currentSeg?.label ?? "",
+      activeTab: this._activeTab,
       participants,
       pcOptions,
       selectedNpc,
@@ -179,219 +179,264 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     };
   }
 
-  /**
-   * Override _getSubmitData to prevent Foundry's form serializer from writing
-   * npcStateByParticipantId dot-paths that only contain `isRevealed` (stripping
-   * the `id` and `label` fields not present as form inputs).
-   * Instead we rebuild the full object from live item data + current checkboxes.
-   */
-  _getSubmitData(updateData = {}) {
-    const formData = super._getSubmitData(updateData);
+  // ── Rendering / listeners ──────────────────────────────────────────────────
 
-    // Collect and remove any keys Foundry serialised for npcStateByParticipantId
-    const npcKeys = Object.keys(formData).filter((k) => k.startsWith("system.npcStateByParticipantId."));
-    if (npcKeys.length === 0) return formData;
-    for (const k of npcKeys) delete formData[k];
+  _onRender(context, options) {
+    const root = this.element;
 
-    // Rebuild from live item data, patching only isRevealed from checkboxes.
-    const npcState = foundry.utils.deepClone(this.item.system?.npcStateByParticipantId ?? {});
-    const root = this.element?.[0] ?? this.element;
-    if (root) {
-      for (const cb of root.querySelectorAll('input[type="checkbox"][name^="system.npcStateByParticipantId."]')) {
-        // name format: system.npcStateByParticipantId.{npcId}.{motivations|pitfalls}.{idx}.isRevealed
-        const stripped = cb.name.slice("system.npcStateByParticipantId.".length);
-        const [npcId, listKey, idxStr, field] = stripped.split(".");
-        const idx = Number(idxStr);
-        if (!npcId || !listKey || !Number.isInteger(idx) || !field) continue;
-        npcState[npcId] ??= {};
-        const list = _toArray(npcState[npcId][listKey]);
-        if (list[idx]) list[idx][field] = cb.checked;
-        npcState[npcId][listKey] = list;
+    // Apply tab visibility BEFORE super — ProseMirror requires the host element
+    // to be in the visible DOM (not display:none) when it initialises. Without
+    // this, editors in the active tab are hidden at activation time and never
+    // become editable.
+    this.#applyTabState(root);
+
+    // Activate ProseMirror editors and other V2 built-ins.
+    super._onRender(context, options);
+
+    // Mount <prose-mirror> custom elements for GM editors.
+    // The {{editor}} Handlebars helper is a V1 mechanism and does not work in
+    // ApplicationV2. We use HTMLProseMirrorElement.create() directly so the
+    // element self-initialises when appended to the DOM.
+    if (game.user.isGM) {
+      const ProseMirrorEl = foundry.applications.elements.HTMLProseMirrorElement;
+      for (const wrap of root.querySelectorAll(".neg-editor-wrap[data-field]")) {
+        const fieldName = wrap.dataset.field;
+        const value = foundry.utils.getProperty(this.document, fieldName) ?? "";
+        const el = ProseMirrorEl.create({ name: fieldName, value, editable: true });
+        wrap.appendChild(el);
+        // Save on ProseMirror blur/save event → direct document update.
+        el.addEventListener("save", async () => {
+          await this.document.update({ [fieldName]: el.value });
+        });
       }
     }
 
-    formData["system.npcStateByParticipantId"] = npcState;
-    return formData;
+    for (const link of root.querySelectorAll(".tabs .item[data-tab]")) {
+      link.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        this._activeTab = ev.currentTarget.dataset.tab;
+        this.#applyTabState(root);
+      });
+    }
+
+    // Button action dispatch.
+    for (const btn of root.querySelectorAll("button[data-action]")) {
+      btn.addEventListener("click", this.#onAction.bind(this));
+    }
+
+    // Participant kind constraint (single NPC).
+    for (const sel of root.querySelectorAll(".neg-participant-kind")) {
+      sel.addEventListener("change", this.#onKindChange.bind(this));
+    }
+
+    // isRevealed checkboxes — handled directly, not via form submission, to
+    // avoid the V2 serializer stripping id+label from npcStateByParticipantId.
+    for (const cb of root.querySelectorAll('input[type="checkbox"][data-npc-id]')) {
+      cb.addEventListener("change", this.#onRevealedChange.bind(this));
+    }
+
+    // Actor drag/drop.
+    root.addEventListener("dragover", (ev) => ev.preventDefault());
+    root.addEventListener("drop", this.#onDrop.bind(this));
   }
 
-  activateListeners(html) {
-    super.activateListeners(html);
-    html.find("button[data-action]").on("click", this.#onAction.bind(this));
-
-    // Enforce the single-NPC constraint in the Participants tab.
-    html.find(".neg-participant-kind").on("change", (ev) => {
-      if (!game.user.isGM) return;
-      const el = ev.currentTarget;
-      if (!el) return;
-      if (el.value !== "npc") return;
-
-      const root = html?.[0] ?? html;
-      const selects = root.querySelectorAll(".neg-participant-kind");
-      let npcCount = 0;
-      for (const s of selects) if (s?.value === "npc") npcCount += 1;
-      if (npcCount > 1) {
-        el.value = "pc";
-        ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.OnlyOneNPC"));
-      }
-    });
-
-    // Enable Actor drag/drop on the sheet.
-    html.on("drop", this.#onDrop.bind(this));
+  #applyTabState(root) {
+    for (const link of root.querySelectorAll(".tabs .item[data-tab]")) {
+      link.classList.toggle("active", link.dataset.tab === this._activeTab);
+    }
+    for (const pane of root.querySelectorAll(".tab-content .tab[data-tab]")) {
+      pane.classList.toggle("active", pane.dataset.tab === this._activeTab);
+    }
   }
+
+  // ── Form submit override ──────────────────────────────────────────────────
+  // All action-only inputs (neg-add-motivation, neg-arg-actor, etc.) use
+  // data-key= instead of name=, so FormData only ever contains valid system.*
+  // paths. isRevealed checkboxes are also nameless (handled by #onRevealedChange).
+  // We keep this override only to avoid Foundry trying to save the name field
+  // at the top level in some V13 builds; otherwise it's a transparent passthrough.
+  async _processSubmitData(event, form, formData) {
+    // formData.object has the collected form values. Some keys may be flat
+    // dot-paths (e.g. "system.setup.overview" from the prose-mirror element);
+    // document.update() accepts both flat dot-paths and nested objects.
+    const obj = formData?.object ?? {};
+    if (Object.keys(obj).length) await this.document.update(obj);
+  }
+
+  // ── isRevealed direct handler ─────────────────────────────────────────────
+
+  async #onRevealedChange(ev) {
+    const cb = ev.currentTarget;
+    const npcId  = cb.dataset.npcId;
+    const listKey = cb.dataset.list;
+    const idx    = Number(cb.dataset.idx);
+    if (!npcId || !listKey || !Number.isInteger(idx)) return;
+    const npcState = this.#cloneNpcState();
+    npcState[npcId] ??= {};
+    const list = _toArray(npcState[npcId][listKey]);
+    if (list[idx]) list[idx].isRevealed = cb.checked;
+    npcState[npcId][listKey] = list;
+    await this.document.update({ "system.npcStateByParticipantId": npcState });
+  }
+
+  // ── Drag/drop ──────────────────────────────────────────────────────────────
 
   async #onDrop(event) {
     if (!game.user.isGM) return;
     event.preventDefault();
-    const dragEvent = event?.originalEvent ?? event;
-    if (!dragEvent?.dataTransfer) return;
-    const data = _TextEditor.getDragEventData(dragEvent);
-    if (!data) return;
-
-    if (data.type !== "Actor") return;
+    const data = _TextEditor.getDragEventData(event);
+    if (!data || data.type !== "Actor") return;
     const actor = await fromUuid(data.uuid);
     if (!actor) return;
 
-    // Draw Steel doesn't necessarily use dnd5e-style actor types. Treat "hero" and "character" as PCs.
     const kind = ["character", "hero", "pc"].includes(String(actor.type ?? "")) ? "pc" : "npc";
-
     if (kind === "npc") {
-      const existingNpcCount = (this.item.system?.participants ?? []).filter((p) => p.kind === "npc").length;
-      if (existingNpcCount >= 1) {
+      const existingNpc = (this.document.system?.participants ?? []).filter((p) => p.kind === "npc").length;
+      if (existingNpc >= 1) {
         ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.OnlyOneNPC"));
         return;
       }
     }
 
-    const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
-    const updated = addParticipant(this.item.system, {
+    const rules = getRulesProfile(this.document.system?.setup?.rulesProfileId);
+    const updated = addParticipant(this.document.system, {
       actorUuid: data.uuid,
       displayName: actor.name,
       kind,
       role: "",
       isActive: true,
     }, rules, { idFn: () => foundry.utils.randomID() });
-
-    await this.item.update({ system: updated });
+    await this.document.update({ system: updated });
   }
 
-  async #onAction(event) {
-    event.preventDefault();
-    const action = event.currentTarget?.dataset?.action;
+  // ── NPC kind constraint ────────────────────────────────────────────────────
+
+  #onKindChange(ev) {
+    if (!game.user.isGM) return;
+    const el = ev.currentTarget;
+    if (el.value !== "npc") return;
+    const selects = this.element.querySelectorAll(".neg-participant-kind");
+    let npcCount = 0;
+    for (const s of selects) if (s.value === "npc") npcCount++;
+    if (npcCount > 1) {
+      el.value = "pc";
+      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.OnlyOneNPC"));
+    }
+  }
+
+  // ── Action dispatch ────────────────────────────────────────────────────────
+
+  async #onAction(ev) {
+    ev.preventDefault();
+    const action = ev.currentTarget?.dataset?.action;
     if (!action) return;
 
-    if (["copySummary"].includes(action)) {
-      return this.#copySummary();
-    }
+    if (action === "copySummary") return this.#copySummary();
+
     if (!game.user.isGM) {
       ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.OnlyGM"));
       return;
     }
 
     switch (action) {
-      case "addNpcNoActor":
-        return this.#addNpcNoActor();
-      case "addPcNoActor":
-        return this.#addPcNoActor();
-      case "removeParticipant":
-        return this.#removeParticipant(event.currentTarget.dataset.participantId);
-      case "startNegotiation":
-        return this.#start();
-      case "stopNegotiation":
-        return this.#stop();
-      case "advanceStructure":
-        return this.#advance();
-      case "addArgumentEntry":
-        return this.#addArgument();
-      case "addRevealEntry":
-        return this.#addReveal();
-      case "addNpcMotivation":
-        return this.#addNpcMotivation();
-      case "removeNpcMotivation":
-        return this.#removeNpcMotivation(event.currentTarget.dataset.index);
-      case "addNpcPitfall":
-        return this.#addNpcPitfall();
-      case "removeNpcPitfall":
-        return this.#removeNpcPitfall(event.currentTarget.dataset.index);
-      case "resolveNegotiation":
-        return this.#resolve();
-      default:
-        return;
+      case "addPcNoActor":        return this.#addPcNoActor();
+      case "addNpcNoActor":       return this.#addNpcNoActor();
+      case "removeParticipant":   return this.#removeParticipant(ev.currentTarget.dataset.participantId);
+      case "startNegotiation":    return this.#start();
+      case "stopNegotiation":     return this.#stop();
+      case "addArgumentEntry":    return this.#addArgument();
+      case "addRevealEntry":      return this.#addReveal();
+      case "addNpcMotivation":    return this.#addNpcMotivation();
+      case "removeNpcMotivation": return this.#removeNpcMotivation(ev.currentTarget.dataset.index);
+      case "addNpcPitfall":       return this.#addNpcPitfall();
+      case "removeNpcPitfall":    return this.#removeNpcPitfall(ev.currentTarget.dataset.index);
+      case "resolveNegotiation":  return this.#resolve();
     }
+  }
+
+  // ── Participant actions ────────────────────────────────────────────────────
+
+  async #addPcNoActor() {
+    const rules = getRulesProfile(this.document.system?.setup?.rulesProfileId);
+    const updated = addParticipant(this.document.system, {
+      displayName: "PC", kind: "pc", role: "", isActive: true,
+    }, rules, { idFn: () => foundry.utils.randomID() });
+    await this.document.update({ system: updated });
   }
 
   async #addNpcNoActor() {
-    const existingNpcCount = (this.item.system?.participants ?? []).filter((p) => p.kind === "npc").length;
-    if (existingNpcCount >= 1) {
+    const existing = (this.document.system?.participants ?? []).filter((p) => p.kind === "npc").length;
+    if (existing >= 1) {
       ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.OnlyOneNPC"));
       return;
     }
-    const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
-    const updated = addParticipant(this.item.system, {
-      displayName: "NPC",
-      kind: "npc",
-      role: "",
-      isActive: true,
+    const rules = getRulesProfile(this.document.system?.setup?.rulesProfileId);
+    const updated = addParticipant(this.document.system, {
+      displayName: "NPC", kind: "npc", role: "", isActive: true,
     }, rules, { idFn: () => foundry.utils.randomID() });
-    await this.item.update({ system: updated });
-  }
-
-  async #addPcNoActor() {
-    const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
-    const updated = addParticipant(this.item.system, {
-      displayName: "PC",
-      kind: "pc",
-      role: "",
-      isActive: true,
-    }, rules, { idFn: () => foundry.utils.randomID() });
-    await this.item.update({ system: updated });
+    await this.document.update({ system: updated });
   }
 
   async #removeParticipant(participantId) {
-    const system = foundry.utils.deepClone(this.item.system);
+    const system = foundry.utils.deepClone(this.document.system);
     system.participants = (system.participants ?? []).filter((p) => p.id !== participantId);
     if (system.npcStateByParticipantId) delete system.npcStateByParticipantId[participantId];
-    await this.item.update({ system });
+    await this.document.update({ system });
   }
 
+  // ── Negotiation flow ───────────────────────────────────────────────────────
+
   async #start() {
-    const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
-    const next = startNegotiation(this.item.system, rules, { idFn: () => foundry.utils.randomID() });
-    await this.item.update({ system: next });
+    const rules = getRulesProfile(this.document.system?.setup?.rulesProfileId);
+    const next = startNegotiation(this.document.system, rules, { idFn: () => foundry.utils.randomID() });
+    await this.document.update({ system: next });
   }
 
   async #stop() {
-    await this.item.update({ "system.resolution.status": "notStarted" });
+    await this.document.update({ "system.resolution.status": "notStarted" });
   }
 
-  async #advance() {
-    const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
-    const next = advanceStructure(this.item.system, rules, { idFn: () => foundry.utils.randomID() });
-    await this.item.update({ system: next });
+  async #resolve() {
+    const rules = getRulesProfile(this.document.system?.setup?.rulesProfileId);
+    const outcome = evaluateEndConditions(this.document.system, rules);
+    const system = foundry.utils.deepClone(this.document.system);
+    system.resolution ??= {};
+    if (outcome) {
+      system.resolution.status = outcome.status;
+      system.resolution.outcomeId = outcome.outcomeId;
+    } else {
+      system.resolution.status = "ended";
+      system.resolution.outcomeId = "";
+    }
+    system.resolution.resolvedAtIso = new Date().toISOString();
+    system.resolution.summaryPublic = renderPublicSummary(redactForViewer(system, { isGM: false }), rules);
+    system.resolution.summaryGM = renderGmSummary(system, rules);
+    await this.document.update({ system });
   }
+
+  async #copySummary() {
+    const rules = getRulesProfile(this.document.system?.setup?.rulesProfileId);
+    const publicSummary = renderPublicSummary(redactForViewer(this.document.system, { isGM: false }), rules);
+    await navigator.clipboard.writeText(publicSummary);
+  }
+
+  // ── Argument entry ─────────────────────────────────────────────────────────
 
   async #addArgument() {
-    const root = this.element?.[0] ?? this.element;
-    if (!root) return;
+    const root = this.element;
+    const actorId      = root.querySelector('[data-key="neg-arg-actor"]')?.value;
+    const tier         = Number(root.querySelector('[data-key="neg-arg-tier"]')?.value ?? 2);
+    const argTypeId    = root.querySelector('[data-key="neg-arg-type"]')?.value ?? "custom";
+    const motivationId = root.querySelector('[data-key="neg-arg-motivation"]')?.value ?? "";
+    const pitfallId    = root.querySelector('[data-key="neg-arg-pitfall"]')?.value ?? "";
+    const reveal       = !!root.querySelector('[data-key="neg-arg-reveal"]')?.checked;
 
-    const actorId = root.querySelector('select[name="neg-arg-actor"]')?.value;
-    const tier = Number(root.querySelector('select[name="neg-arg-tier"]')?.value ?? 2);
-    const argTypeId = root.querySelector('select[name="neg-arg-type"]')?.value ?? "custom";
-    const motivationId = root.querySelector('select[name="neg-arg-motivation"]')?.value ?? "";
-    const pitfallId = root.querySelector('select[name="neg-arg-pitfall"]')?.value ?? "";
-    const reveal = !!root.querySelector('input[name="neg-arg-reveal"]')?.checked;
+    const targetId = this.#resolveNpcId();
+    if (!targetId) { ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC")); return; }
+    if (!actorId)  { ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedPC")); return; }
 
-    const targetId = this._selectedNpcId;
-    if (!targetId) {
-      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC"));
-      return;
-    }
-    if (!actorId) {
-      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedPC"));
-      return;
-    }
-
-    const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
-    const { nextState } = addArgumentEntry(this.item.system, rules, {
+    const rules = getRulesProfile(this.document.system?.setup?.rulesProfileId);
+    const { nextState } = addArgumentEntry(this.document.system, rules, {
       actorParticipantId: actorId,
       targetNpcParticipantId: targetId,
       argumentTypeId: argTypeId,
@@ -403,30 +448,23 @@ export class NegotiationTestSheet extends ItemSheetV1 {
       roll: { mode: "none", formula: "", total: null, visibleToPlayers: false },
       isRevealedToPlayers: reveal,
     }, { idFn: () => foundry.utils.randomID() });
-
-    await this.item.update({ system: nextState });
+    await this.document.update({ system: nextState });
   }
 
-  async #addReveal() {
-    const root = this.element?.[0] ?? this.element;
-    if (!root) return;
+  // ── Discovery entry ────────────────────────────────────────────────────────
 
-    const actorId = root.querySelector('select[name="neg-reveal-actor"]')?.value;
-    const tier = Number(root.querySelector('select[name="neg-reveal-tier"]')?.value ?? 2);
-    const revealToPlayers = !!root.querySelector('input[name="neg-reveal-to-players"]')?.checked;
+  async #addReveal() {
+    const root = this.element;
+    const actorId         = root.querySelector('[data-key="neg-reveal-actor"]')?.value;
+    const tier            = Number(root.querySelector('[data-key="neg-reveal-tier"]')?.value ?? 2);
+    const revealToPlayers = !!root.querySelector('[data-key="neg-reveal-to-players"]')?.checked;
 
     const targetId = this.#resolveNpcId();
-    if (!targetId) {
-      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC"));
-      return;
-    }
-    if (!actorId) {
-      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedPC"));
-      return;
-    }
+    if (!targetId) { ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC")); return; }
+    if (!actorId)  { ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedPC")); return; }
 
-    const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
-    const { nextState } = addDiscoveryEntry(this.item.system, rules, {
+    const rules = getRulesProfile(this.document.system?.setup?.rulesProfileId);
+    const { nextState } = addDiscoveryEntry(this.document.system, rules, {
       actorParticipantId: actorId,
       targetNpcParticipantId: targetId,
       tier,
@@ -435,118 +473,75 @@ export class NegotiationTestSheet extends ItemSheetV1 {
       revealToPlayers,
       isRevealedToPlayers: revealToPlayers,
     }, { idFn: () => foundry.utils.randomID() });
-
-    await this.item.update({ system: nextState });
+    await this.document.update({ system: nextState });
   }
 
-  async #resolve() {
-    const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
-    const outcome = evaluateEndConditions(this.item.system, rules);
+  // ── NPC motivations / pitfalls ─────────────────────────────────────────────
 
-    const system = foundry.utils.deepClone(this.item.system);
-    system.resolution ??= {};
-
-    if (outcome) {
-      system.resolution.status = outcome.status;
-      system.resolution.outcomeId = outcome.outcomeId;
-    } else {
-      system.resolution.status = "ended";
-      system.resolution.outcomeId = "";
-    }
-    system.resolution.resolvedAtIso = new Date().toISOString();
-    system.resolution.summaryPublic = renderPublicSummary(redactForViewer(system, { isGM: false }), rules);
-    system.resolution.summaryGM = renderGmSummary(system, rules);
-
-    await this.item.update({ system });
-  }
-
-  async #copySummary() {
-    const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
-    const publicSummary = renderPublicSummary(redactForViewer(this.item.system, { isGM: false }), rules);
-    await navigator.clipboard.writeText(publicSummary);
-  }
-
-  // Resolve the current NPC participant id — never rely solely on the cached
-  // _selectedNpcId because it can be stale or empty-string after migration renders.
   #resolveNpcId() {
-    // First try the cached value (set during getData).
     if (this._selectedNpcId) return this._selectedNpcId;
-    // Fallback: pick the first NPC directly from the live item data.
-    const npcParticipant = (this.item.system?.participants ?? []).find((p) => p.kind === "npc" && p.id);
-    if (npcParticipant?.id) {
-      this._selectedNpcId = npcParticipant.id;
-      return this._selectedNpcId;
-    }
+    const p = (this.document.system?.participants ?? []).find((p) => p.kind === "npc" && p.id);
+    if (p?.id) { this._selectedNpcId = p.id; return p.id; }
     return null;
   }
 
-  async #addNpcMotivation() {
-    const root = this.element?.[0] ?? this.element;
-    if (!root) return;
-    const id = root.querySelector('select[name="neg-add-motivation"]')?.value;
-    if (!id) return;
+  #cloneNpcState() {
+    return foundry.utils.deepClone(this.document.system?.npcStateByParticipantId ?? {});
+  }
 
-    const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
+  async #addNpcMotivation() {
+    const id = this.element.querySelector('[data-key="neg-add-motivation"]')?.value;
+    if (!id) return;
+    const rules = getRulesProfile(this.document.system?.setup?.rulesProfileId);
     const def = (rules.motivations ?? []).find((m) => m.id === id);
     if (!def) return;
-
     const npcId = this.#resolveNpcId();
-    if (!npcId) {
-      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC"));
-      return;
-    }
-    const npcState = foundry.utils.deepClone(this.item.system?.npcStateByParticipantId ?? {});
+    if (!npcId) { ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC")); return; }
+    const npcState = this.#cloneNpcState();
     npcState[npcId] ??= {};
     const motivations = _toArray(npcState[npcId].motivations);
     if (motivations.some((m) => m.id === id)) return;
     motivations.push({ id: def.id, label: def.label, isRevealed: false });
     npcState[npcId].motivations = motivations;
-    await this.item.update({ "system.npcStateByParticipantId": npcState });
+    await this.document.update({ "system.npcStateByParticipantId": npcState });
   }
 
   async #removeNpcMotivation(indexStr) {
     const npcId = this.#resolveNpcId();
     const idx = Number(indexStr);
     if (!npcId || !Number.isInteger(idx)) return;
-    const npcState = foundry.utils.deepClone(this.item.system?.npcStateByParticipantId ?? {});
+    const npcState = this.#cloneNpcState();
     const motivations = _toArray(npcState[npcId]?.motivations);
     motivations.splice(idx, 1);
     npcState[npcId].motivations = motivations;
-    await this.item.update({ "system.npcStateByParticipantId": npcState });
+    await this.document.update({ "system.npcStateByParticipantId": npcState });
   }
 
   async #addNpcPitfall() {
-    const root = this.element?.[0] ?? this.element;
-    if (!root) return;
-    const id = root.querySelector('select[name="neg-add-pitfall"]')?.value;
+    const id = this.element.querySelector('[data-key="neg-add-pitfall"]')?.value;
     if (!id) return;
-
-    const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
+    const rules = getRulesProfile(this.document.system?.setup?.rulesProfileId);
     const def = (rules.pitfalls ?? []).find((p) => p.id === id);
     if (!def) return;
-
     const npcId = this.#resolveNpcId();
-    if (!npcId) {
-      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC"));
-      return;
-    }
-    const npcState = foundry.utils.deepClone(this.item.system?.npcStateByParticipantId ?? {});
+    if (!npcId) { ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC")); return; }
+    const npcState = this.#cloneNpcState();
     npcState[npcId] ??= {};
     const pitfalls = _toArray(npcState[npcId].pitfalls);
     if (pitfalls.some((p) => p.id === id)) return;
     pitfalls.push({ id: def.id, label: def.label, isRevealed: false });
     npcState[npcId].pitfalls = pitfalls;
-    await this.item.update({ "system.npcStateByParticipantId": npcState });
+    await this.document.update({ "system.npcStateByParticipantId": npcState });
   }
 
   async #removeNpcPitfall(indexStr) {
     const npcId = this.#resolveNpcId();
     const idx = Number(indexStr);
     if (!npcId || !Number.isInteger(idx)) return;
-    const npcState = foundry.utils.deepClone(this.item.system?.npcStateByParticipantId ?? {});
+    const npcState = this.#cloneNpcState();
     const pitfalls = _toArray(npcState[npcId]?.pitfalls);
     pitfalls.splice(idx, 1);
     npcState[npcId].pitfalls = pitfalls;
-    await this.item.update({ "system.npcStateByParticipantId": npcState });
+    await this.document.update({ "system.npcStateByParticipantId": npcState });
   }
 }
