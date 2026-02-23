@@ -414,6 +414,20 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     await navigator.clipboard.writeText(publicSummary);
   }
 
+  // Resolve the current NPC participant id — never rely solely on the cached
+  // _selectedNpcId because it can be stale or empty-string after migration renders.
+  #resolveNpcId() {
+    // First try the cached value (set during getData).
+    if (this._selectedNpcId) return this._selectedNpcId;
+    // Fallback: pick the first NPC directly from the live item data.
+    const npcParticipant = (this.item.system?.participants ?? []).find((p) => p.kind === "npc" && p.id);
+    if (npcParticipant?.id) {
+      this._selectedNpcId = npcParticipant.id;
+      return this._selectedNpcId;
+    }
+    return null;
+  }
+
   async #addNpcMotivation() {
     const root = this.element?.[0] ?? this.element;
     if (!root) return;
@@ -424,27 +438,24 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     const def = (rules.motivations ?? []).find((m) => m.id === id);
     if (!def) return;
 
-    const npcId = this._selectedNpcId;
-    if (!npcId) return;
-    const system = foundry.utils.deepClone(this.item.system);
-    system.npcStateByParticipantId ??= {};
-    system.npcStateByParticipantId[npcId] ??= {};
-    const npc = system.npcStateByParticipantId[npcId];
-    npc.motivations ??= [];
-    if (npc.motivations.some((m) => m.id === id)) return;
-    npc.motivations.push({ id: def.id, label: def.label, isRevealed: false });
-    await this.item.update({ system });
+    const npcId = this.#resolveNpcId();
+    if (!npcId) {
+      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC"));
+      return;
+    }
+    const motivations = [...((this.item.system?.npcStateByParticipantId?.[npcId]?.motivations) ?? [])];
+    if (motivations.some((m) => m.id === id)) return;
+    motivations.push({ id: def.id, label: def.label, isRevealed: false });
+    await this.item.update({ [`system.npcStateByParticipantId.${npcId}.motivations`]: motivations });
   }
 
   async #removeNpcMotivation(indexStr) {
-    const npcId = this._selectedNpcId;
+    const npcId = this.#resolveNpcId();
     const idx = Number(indexStr);
     if (!npcId || !Number.isInteger(idx)) return;
-    const system = foundry.utils.deepClone(this.item.system);
-    const npc = system.npcStateByParticipantId?.[npcId];
-    if (!npc?.motivations?.length) return;
-    npc.motivations.splice(idx, 1);
-    await this.item.update({ system });
+    const motivations = [...((this.item.system?.npcStateByParticipantId?.[npcId]?.motivations) ?? [])];
+    motivations.splice(idx, 1);
+    await this.item.update({ [`system.npcStateByParticipantId.${npcId}.motivations`]: motivations });
   }
 
   async #addNpcPitfall() {
@@ -457,26 +468,23 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     const def = (rules.pitfalls ?? []).find((p) => p.id === id);
     if (!def) return;
 
-    const npcId = this._selectedNpcId;
-    if (!npcId) return;
-    const system = foundry.utils.deepClone(this.item.system);
-    system.npcStateByParticipantId ??= {};
-    system.npcStateByParticipantId[npcId] ??= {};
-    const npc = system.npcStateByParticipantId[npcId];
-    npc.pitfalls ??= [];
-    if (npc.pitfalls.some((p) => p.id === id)) return;
-    npc.pitfalls.push({ id: def.id, label: def.label, isRevealed: false });
-    await this.item.update({ system });
+    const npcId = this.#resolveNpcId();
+    if (!npcId) {
+      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC"));
+      return;
+    }
+    const pitfalls = [...((this.item.system?.npcStateByParticipantId?.[npcId]?.pitfalls) ?? [])];
+    if (pitfalls.some((p) => p.id === id)) return;
+    pitfalls.push({ id: def.id, label: def.label, isRevealed: false });
+    await this.item.update({ [`system.npcStateByParticipantId.${npcId}.pitfalls`]: pitfalls });
   }
 
   async #removeNpcPitfall(indexStr) {
-    const npcId = this._selectedNpcId;
+    const npcId = this.#resolveNpcId();
     const idx = Number(indexStr);
     if (!npcId || !Number.isInteger(idx)) return;
-    const system = foundry.utils.deepClone(this.item.system);
-    const npc = system.npcStateByParticipantId?.[npcId];
-    if (!npc?.pitfalls?.length) return;
-    npc.pitfalls.splice(idx, 1);
-    await this.item.update({ system });
+    const pitfalls = [...((this.item.system?.npcStateByParticipantId?.[npcId]?.pitfalls) ?? [])];
+    pitfalls.splice(idx, 1);
+    await this.item.update({ [`system.npcStateByParticipantId.${npcId}.pitfalls`]: pitfalls });
   }
 }
