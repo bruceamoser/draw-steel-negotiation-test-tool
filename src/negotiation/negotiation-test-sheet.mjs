@@ -202,7 +202,11 @@ export class NegotiationTestSheet extends foundry.applications.api.HandlebarsApp
       for (const wrap of root.querySelectorAll(".neg-editor-wrap[data-field]")) {
         const fieldName = wrap.dataset.field;
         const value = foundry.utils.getProperty(this.document, fieldName) ?? "";
-        const el = ProseMirrorEl.create({ name: fieldName, value, editable: true });
+        // No `name` attribute — saves go through the "save" event below.
+        // Giving the element a name= causes ApplicationV2 submitOnChange to
+        // serialise it on every ProseMirror init event, creating an infinite
+        // update → re-render → init → update loop.
+        const el = ProseMirrorEl.create({ value, editable: true });
         wrap.appendChild(el);
         // Save on ProseMirror blur/save event → direct document update.
         el.addEventListener("save", async () => {
