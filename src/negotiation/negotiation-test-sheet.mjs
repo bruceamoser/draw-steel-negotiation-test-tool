@@ -113,8 +113,8 @@ export class NegotiationTestSheet extends ItemSheetV1 {
       interestDisplay: _interestDisplay(system, selectedNpcState),
       patienceDisplay: _patienceDisplay(system, selectedNpcState),
       offerLabel: rules?.offersByInterest?.[Number(selectedNpcState?.interest?.value ?? 0)]?.label ?? "",
-      motivations: selectedNpcState.motivations ?? [],
-      pitfalls: selectedNpcState.pitfalls ?? [],
+      motivations: _toArray(selectedNpcState.motivations),
+      pitfalls: _toArray(selectedNpcState.pitfalls),
     } : null;
 
     const timeline = (system.timeline ?? []).map((seg) => ({
@@ -155,9 +155,12 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     const pitfallOptions = (rules?.pitfalls ?? negotiationRules_v101b.pitfalls).map((p) => ({ id: p.id, label: p.label }));
     const argumentTypeOptions = (rules?.argumentTypes ?? negotiationRules_v101b.argumentTypes).map((t) => ({ id: t.id, label: t.label }));
 
+    const isInProgress = (system.resolution?.status ?? "notStarted") === "inProgress";
+
     return {
       ...data,
       isGM: game.user.isGM,
+      isInProgress,
       system,
       enrichedOverview,
       enrichedOutcomeSuccess,
@@ -258,6 +261,8 @@ export class NegotiationTestSheet extends ItemSheetV1 {
         return this.#removeParticipant(event.currentTarget.dataset.participantId);
       case "startNegotiation":
         return this.#start();
+      case "stopNegotiation":
+        return this.#stop();
       case "advanceStructure":
         return this.#advance();
       case "addArgumentEntry":
@@ -317,6 +322,10 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
     const next = startNegotiation(this.item.system, rules, { idFn: () => foundry.utils.randomID() });
     await this.item.update({ system: next });
+  }
+
+  async #stop() {
+    await this.item.update({ "system.resolution.status": "notStarted" });
   }
 
   async #advance() {
@@ -452,19 +461,24 @@ export class NegotiationTestSheet extends ItemSheetV1 {
       ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC"));
       return;
     }
-    const motivations = _toArray(this.item.system?.npcStateByParticipantId?.[npcId]?.motivations);
+    const npcState = foundry.utils.deepClone(this.item.system?.npcStateByParticipantId ?? {});
+    npcState[npcId] ??= {};
+    const motivations = _toArray(npcState[npcId].motivations);
     if (motivations.some((m) => m.id === id)) return;
     motivations.push({ id: def.id, label: def.label, isRevealed: false });
-    await this.item.update({ [`system.npcStateByParticipantId.${npcId}.motivations`]: motivations });
+    npcState[npcId].motivations = motivations;
+    await this.item.update({ "system.npcStateByParticipantId": npcState });
   }
 
   async #removeNpcMotivation(indexStr) {
     const npcId = this.#resolveNpcId();
     const idx = Number(indexStr);
     if (!npcId || !Number.isInteger(idx)) return;
-    const motivations = _toArray(this.item.system?.npcStateByParticipantId?.[npcId]?.motivations);
+    const npcState = foundry.utils.deepClone(this.item.system?.npcStateByParticipantId ?? {});
+    const motivations = _toArray(npcState[npcId]?.motivations);
     motivations.splice(idx, 1);
-    await this.item.update({ [`system.npcStateByParticipantId.${npcId}.motivations`]: motivations });
+    npcState[npcId].motivations = motivations;
+    await this.item.update({ "system.npcStateByParticipantId": npcState });
   }
 
   async #addNpcPitfall() {
@@ -482,18 +496,23 @@ export class NegotiationTestSheet extends ItemSheetV1 {
       ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC"));
       return;
     }
-    const pitfalls = _toArray(this.item.system?.npcStateByParticipantId?.[npcId]?.pitfalls);
+    const npcState = foundry.utils.deepClone(this.item.system?.npcStateByParticipantId ?? {});
+    npcState[npcId] ??= {};
+    const pitfalls = _toArray(npcState[npcId].pitfalls);
     if (pitfalls.some((p) => p.id === id)) return;
     pitfalls.push({ id: def.id, label: def.label, isRevealed: false });
-    await this.item.update({ [`system.npcStateByParticipantId.${npcId}.pitfalls`]: pitfalls });
+    npcState[npcId].pitfalls = pitfalls;
+    await this.item.update({ "system.npcStateByParticipantId": npcState });
   }
 
   async #removeNpcPitfall(indexStr) {
     const npcId = this.#resolveNpcId();
     const idx = Number(indexStr);
     if (!npcId || !Number.isInteger(idx)) return;
-    const pitfalls = _toArray(this.item.system?.npcStateByParticipantId?.[npcId]?.pitfalls);
+    const npcState = foundry.utils.deepClone(this.item.system?.npcStateByParticipantId ?? {});
+    const pitfalls = _toArray(npcState[npcId]?.pitfalls);
     pitfalls.splice(idx, 1);
-    await this.item.update({ [`system.npcStateByParticipantId.${npcId}.pitfalls`]: pitfalls });
+    npcState[npcId].pitfalls = pitfalls;
+    await this.item.update({ "system.npcStateByParticipantId": npcState });
   }
 }

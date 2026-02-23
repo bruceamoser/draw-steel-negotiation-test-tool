@@ -302,9 +302,15 @@
         <div class="neg-forms-col">
 
           <div class="neg-section neg-controls-bar">
+            {{#if isInProgress}}
+            <button type="button" class="neg-btn neg-btn--danger" data-action="stopNegotiation">
+              <i class="fa-solid fa-stop"></i> Stop
+            </button>
+            {{else}}
             <button type="button" class="neg-btn" data-action="startNegotiation">
               <i class="fa-solid fa-play"></i> Start
             </button>
+            {{/if}}
             <button type="button" class="neg-btn" data-action="resolveNegotiation">
               <i class="fa-solid fa-flag-checkered"></i> Resolve
             </button>

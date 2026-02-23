@@ -217,6 +217,17 @@
   padding: 2px 5px;
 }
 
+.negotiation-sheet .neg-btn--danger {
+  background: #8b1a1a;
+  color: #fff;
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.negotiation-sheet .neg-btn--danger:hover {
+  background: #6b1212;
+}
+
 .negotiation-sheet .neg-btn--sm {
   font-size: 11px;
   padding: 2px 6px;
