@@ -75,11 +75,14 @@ export class NegotiationTestSheet extends foundry.applications.api.HandlebarsApp
     const doc = this.document;
 
     // Migrate: participants with blank IDs (created by old code). Fire-and-forget.
+    // Use { render: false } so the silent data patch does not trigger a re-render
+    // of open sheets — without it the update → re-render → _prepareContext →
+    // update cycle loops indefinitely while any participant id is falsy.
     if (isGM) {
       const raw = doc.system?.participants ?? [];
       if (raw.some((p) => !p?.id)) {
         const fixed = raw.map((p) => ({ ...p, id: p.id || foundry.utils.randomID() }));
-        doc.update({ "system.participants": fixed });
+        doc.update({ "system.participants": fixed }, { render: false });
       }
     }
 

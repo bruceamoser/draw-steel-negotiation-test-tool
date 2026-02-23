@@ -19,14 +19,14 @@ export class NegotiationTestDataModel extends foundry.abstract.TypeDataModel {
     const fields = foundry.data.fields;
 
     const segmentSchema = new fields.SchemaField({
-      id: new fields.StringField({ required: true, blank: false, initial: "" }),
+      id: new fields.StringField({ required: true, blank: false, initial: "_" }),
       index: new fields.NumberField({ required: true, integer: true, min: 1, initial: 1 }),
       label: new fields.StringField({ required: true, blank: true, initial: "" }),
       entries: new fields.ArrayField(new fields.ObjectField({ required: true, initial: {} }), { required: true, initial: [] }),
     });
 
     const participantSchema = new fields.SchemaField({
-      id: new fields.StringField({ required: true, blank: false, initial: "" }),
+      id: new fields.StringField({ required: true, blank: false, initial: "_" }),
       actorUuid: new fields.StringField({ required: false, blank: true, initial: "" }),
       displayName: new fields.StringField({ required: true, blank: true, initial: "" }),
       kind: new fields.StringField({ required: true, initial: "npc", choices: ["pc", "npc"] }),
@@ -54,7 +54,7 @@ export class NegotiationTestDataModel extends foundry.abstract.TypeDataModel {
           maxRounds: new fields.NumberField({ required: false, nullable: true, integer: true, min: 1, initial: null }),
           stages: new fields.ArrayField(
             new fields.SchemaField({
-              id: new fields.StringField({ required: true, blank: false, initial: "" }),
+            id: new fields.StringField({ required: true, blank: false, initial: "_" }),
               label: new fields.StringField({ required: true, blank: true, initial: "" }),
             }),
             { required: false, initial: [] },
