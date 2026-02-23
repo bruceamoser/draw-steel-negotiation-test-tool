@@ -785,7 +785,7 @@ export function addDiscoveryEntry(state, rules, payload, options = {}) {
 
   const totalRaw = payload.rollTotal;
   const rollTotal = (totalRaw === "" || totalRaw === undefined || totalRaw === null) ? null : Number(totalRaw);
-  let discoveryTier = rollTotal === null ? null : computeTier(rules, rollTotal);
+  let discoveryTier = payload.tier ? Number(payload.tier) : (rollTotal === null ? null : computeTier(rules, rollTotal));
   if (!discoveryTier) discoveryTier = rollTotal === null ? null : 2;
 
   let kind = String(payload.kind ?? "").trim();

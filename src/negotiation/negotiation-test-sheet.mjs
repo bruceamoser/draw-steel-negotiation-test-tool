@@ -412,11 +412,10 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     if (!root) return;
 
     const actorId = root.querySelector('select[name="neg-reveal-actor"]')?.value;
-    const totalStr = root.querySelector('input[name="neg-reveal-total"]')?.value;
-    const total = totalStr === "" || totalStr === undefined ? null : Number(totalStr);
+    const tier = Number(root.querySelector('select[name="neg-reveal-tier"]')?.value ?? 2);
     const revealToPlayers = !!root.querySelector('input[name="neg-reveal-to-players"]')?.checked;
 
-    const targetId = this._selectedNpcId;
+    const targetId = this.#resolveNpcId();
     if (!targetId) {
       ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC"));
       return;
@@ -425,13 +424,13 @@ export class NegotiationTestSheet extends ItemSheetV1 {
       ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedPC"));
       return;
     }
-    if (total === null || !Number.isFinite(total)) return;
 
     const rules = getRulesProfile(this.item.system?.setup?.rulesProfileId);
     const { nextState } = addDiscoveryEntry(this.item.system, rules, {
       actorParticipantId: actorId,
       targetNpcParticipantId: targetId,
-      rollTotal: total,
+      tier,
+      rollTotal: null,
       detailsGM: "",
       revealToPlayers,
       isRevealedToPlayers: revealToPlayers,
