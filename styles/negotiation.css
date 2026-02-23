@@ -17,10 +17,20 @@
   margin-bottom: 6px;
 }
 
+/* Sheet form must fill and constrain to window height */
+.negotiation-sheet {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
 /* Keep tab-content scrollable inside the window */
 .negotiation-sheet .tab-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  padding-right: 4px;
 }
 
 /* ── Sheet header ──────────────────────────────────────── */
@@ -93,10 +103,10 @@
   min-height: 120px;
 }
 
-/* Outcomes: three equal columns */
+/* Outcomes: single column vertical stack */
 .negotiation-sheet .neg-outcomes-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   margin-bottom: 8px;
 }

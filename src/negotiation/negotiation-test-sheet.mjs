@@ -21,6 +21,15 @@ const ItemSheetV1 = foundry.appv1?.sheets?.ItemSheet ?? ItemSheet;
 
 const _TextEditor = foundry.applications?.ux?.TextEditor?.implementation ?? TextEditor;
 
+/** Safely convert a value to a plain Array — handles real arrays, Foundry ObjectField
+ *  plain-object representations ({0: x, 1: y, ...}), and null/undefined. */
+function _toArray(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.slice();
+  if (typeof val === "object") return Object.values(val);
+  return [];
+}
+
 function _currentSegment(system) {
   const t = system.timeline ?? [];
   return t.length ? t[t.length - 1] : null;
@@ -443,7 +452,7 @@ export class NegotiationTestSheet extends ItemSheetV1 {
       ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC"));
       return;
     }
-    const motivations = [...((this.item.system?.npcStateByParticipantId?.[npcId]?.motivations) ?? [])];
+    const motivations = _toArray(this.item.system?.npcStateByParticipantId?.[npcId]?.motivations);
     if (motivations.some((m) => m.id === id)) return;
     motivations.push({ id: def.id, label: def.label, isRevealed: false });
     await this.item.update({ [`system.npcStateByParticipantId.${npcId}.motivations`]: motivations });
@@ -453,7 +462,7 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     const npcId = this.#resolveNpcId();
     const idx = Number(indexStr);
     if (!npcId || !Number.isInteger(idx)) return;
-    const motivations = [...((this.item.system?.npcStateByParticipantId?.[npcId]?.motivations) ?? [])];
+    const motivations = _toArray(this.item.system?.npcStateByParticipantId?.[npcId]?.motivations);
     motivations.splice(idx, 1);
     await this.item.update({ [`system.npcStateByParticipantId.${npcId}.motivations`]: motivations });
   }
@@ -473,7 +482,7 @@ export class NegotiationTestSheet extends ItemSheetV1 {
       ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC"));
       return;
     }
-    const pitfalls = [...((this.item.system?.npcStateByParticipantId?.[npcId]?.pitfalls) ?? [])];
+    const pitfalls = _toArray(this.item.system?.npcStateByParticipantId?.[npcId]?.pitfalls);
     if (pitfalls.some((p) => p.id === id)) return;
     pitfalls.push({ id: def.id, label: def.label, isRevealed: false });
     await this.item.update({ [`system.npcStateByParticipantId.${npcId}.pitfalls`]: pitfalls });
@@ -483,7 +492,7 @@ export class NegotiationTestSheet extends ItemSheetV1 {
     const npcId = this.#resolveNpcId();
     const idx = Number(indexStr);
     if (!npcId || !Number.isInteger(idx)) return;
-    const pitfalls = [...((this.item.system?.npcStateByParticipantId?.[npcId]?.pitfalls) ?? [])];
+    const pitfalls = _toArray(this.item.system?.npcStateByParticipantId?.[npcId]?.pitfalls);
     pitfalls.splice(idx, 1);
     await this.item.update({ [`system.npcStateByParticipantId.${npcId}.pitfalls`]: pitfalls });
   }
