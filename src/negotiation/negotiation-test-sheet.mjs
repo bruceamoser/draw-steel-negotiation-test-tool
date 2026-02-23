@@ -49,7 +49,7 @@ export class NegotiationTestSheet extends foundry.applications.api.HandlebarsApp
 
   static DEFAULT_OPTIONS = {
     classes: ["negotiation-app", "negotiation-test-sheet"],
-    window: { width: 820, height: 700, resizable: true },
+    window: { width: 960, height: 700, resizable: true },
     form: { submitOnChange: true, closeOnSubmit: false },
   };
 

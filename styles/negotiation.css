@@ -101,14 +101,15 @@
 
 .negotiation-sheet .neg-editor-wrap {
   min-height: 120px;
+  resize: vertical;
+  overflow: auto;
 }
 
-/* Outcomes: single column vertical stack */
-.negotiation-sheet .neg-outcomes-grid {
+/* Outcomes tab layout */
+.negotiation-sheet .neg-outcomes-layout {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 8px;
 }
 
 /* Outcome card accent bars */
