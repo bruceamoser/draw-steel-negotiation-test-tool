@@ -2,3 +2,4 @@
 /dist/
 /node_modules/
 /.verify-release/
+ARCHITECTURE.local.md
