@@ -8,6 +8,8 @@ import {
   addParticipant,
   addArgumentEntry,
   addDiscoveryEntry,
+  addAdjustmentEntry,
+  addNoteEntry,
   startNegotiation,
   evaluateEndConditions,
   renderPublicSummary,
@@ -49,7 +51,7 @@ export class NegotiationTestSheet extends foundry.applications.api.HandlebarsApp
 
   static DEFAULT_OPTIONS = {
     classes: ["negotiation-app", "negotiation-test-sheet"],
-    window: { width: 820, height: 700, resizable: true },
+    window: { width: 1230, height: 1400, resizable: true },
     form: { submitOnChange: true, closeOnSubmit: false },
   };
 
@@ -73,6 +75,8 @@ export class NegotiationTestSheet extends foundry.applications.api.HandlebarsApp
   async _prepareContext(options) {
     const isGM = game.user.isGM;
     const doc = this.document;
+
+    if (!isGM && this._activeTab === "outcomes") this._activeTab = "overview";
 
     // Migrate: participants with blank IDs (created by old code). Fire-and-forget.
     // Use { render: false } so the silent data patch does not trigger a re-render
@@ -139,6 +143,9 @@ export class NegotiationTestSheet extends foundry.applications.api.HandlebarsApp
           const lbl = e.reveal?.label;
           summary = (k && lbl) ? `Revealed ${k}: ${lbl}` : "Discovery attempt";
         }
+        else if (e.entryType === "adjustment") summary = e.adjustment?.summary ?? game.i18n.localize("NEGOTIATION.Dialog.Adjust.DefaultReason");
+        else if (e.entryType === "note") summary = e.note?.summary ?? "";
+        else if (e.entryType === "test") summary = e.test?.summary ?? "";
         return { ...e, actorName: a?.displayName ?? "", summary, rollTier: e.roll?.tier ?? null, effectsText };
       }),
     }));
@@ -353,6 +360,7 @@ export class NegotiationTestSheet extends foundry.applications.api.HandlebarsApp
       case "stopNegotiation":     return this.#stop();
       case "addArgumentEntry":    return this.#addArgument();
       case "addRevealEntry":      return this.#addReveal();
+      case "addManualAdjustment": return this.#addManualAdjustment();
       case "addNpcMotivation":    return this.#addNpcMotivation();
       case "removeNpcMotivation": return this.#removeNpcMotivation(ev.currentTarget.dataset.index);
       case "addNpcPitfall":       return this.#addNpcPitfall();
@@ -404,6 +412,12 @@ export class NegotiationTestSheet extends foundry.applications.api.HandlebarsApp
   }
 
   async #resolve() {
+    const confirmed = await this.#confirmDialog(
+      game.i18n.localize("NEGOTIATION.Dialog.Resolve.Title"),
+      game.i18n.localize("NEGOTIATION.Dialog.Resolve.Confirm")
+    );
+    if (!confirmed) return;
+
     const rules = getRulesProfile(this.document.system?.setup?.rulesProfileId);
     const outcome = evaluateEndConditions(this.document.system, rules);
     const system = foundry.utils.deepClone(this.document.system);
@@ -418,7 +432,26 @@ export class NegotiationTestSheet extends foundry.applications.api.HandlebarsApp
     system.resolution.resolvedAtIso = new Date().toISOString();
     system.resolution.summaryPublic = renderPublicSummary(redactForViewer(system, { isGM: false }), rules);
     system.resolution.summaryGM = renderGmSummary(system, rules);
-    await this.document.update({ system });
+
+    const statusLabel = String(system.resolution.status ?? "ended").replace(/([A-Z])/g, " $1");
+    const offerLabel = system.resolution.outcomeId
+      ? (rules?.offersByInterest?.[
+        Number(((system.npcStateByParticipantId ?? {})[outcome?.npcId]?.interest?.value) ?? 0)
+      ]?.label ?? system.resolution.outcomeId)
+      : "";
+    const summary = offerLabel
+      ? `Negotiation resolved (${statusLabel.trim()}): ${offerLabel}`
+      : `Negotiation resolved (${statusLabel.trim()}).`;
+
+    const { nextState } = addNoteEntry(system, {
+      actorParticipantId: "",
+      targetNpcParticipantId: outcome?.npcId ?? this.#resolveNpcId() ?? "",
+      summary,
+      detailsGM: "",
+      isRevealedToPlayers: true,
+    }, { idFn: () => foundry.utils.randomID() });
+
+    await this.document.update({ system: nextState });
   }
 
   async #copySummary() {
@@ -430,6 +463,11 @@ export class NegotiationTestSheet extends foundry.applications.api.HandlebarsApp
   // ── Argument entry ─────────────────────────────────────────────────────────
 
   async #addArgument() {
+    if (!this.#isNegotiationInProgress()) {
+      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.StartFirst"));
+      return;
+    }
+
     const root = this.element;
     const actorId      = root.querySelector('[data-key="neg-arg-actor"]')?.value;
     const tier         = Number(root.querySelector('[data-key="neg-arg-tier"]')?.value ?? 2);
@@ -461,6 +499,11 @@ export class NegotiationTestSheet extends foundry.applications.api.HandlebarsApp
   // ── Discovery entry ────────────────────────────────────────────────────────
 
   async #addReveal() {
+    if (!this.#isNegotiationInProgress()) {
+      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.StartFirst"));
+      return;
+    }
+
     const root = this.element;
     const actorId         = root.querySelector('[data-key="neg-reveal-actor"]')?.value;
     const tier            = Number(root.querySelector('[data-key="neg-reveal-tier"]')?.value ?? 2);
@@ -471,15 +514,53 @@ export class NegotiationTestSheet extends foundry.applications.api.HandlebarsApp
     if (!actorId)  { ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedPC")); return; }
 
     const rules = getRulesProfile(this.document.system?.setup?.rulesProfileId);
+
+    const learns = rules?.discoveryTest?.byTier?.[tier]?.learns ?? "none";
+    let pick = null;
+    if (learns === "one") {
+      pick = await this.#promptDiscoveryChoice(targetId);
+      if (!pick) return;
+    }
+
+    const forceReveal = learns === "one" && !!pick;
     const { nextState } = addDiscoveryEntry(this.document.system, rules, {
       actorParticipantId: actorId,
       targetNpcParticipantId: targetId,
       tier,
       rollTotal: null,
       detailsGM: "",
-      revealToPlayers,
-      isRevealedToPlayers: revealToPlayers,
+      revealToPlayers: forceReveal || revealToPlayers,
+      isRevealedToPlayers: forceReveal || revealToPlayers,
+      kind: pick?.kind ?? "",
+      detailId: pick?.id ?? "",
+      label: pick?.label ?? "",
     }, { idFn: () => foundry.utils.randomID() });
+    await this.document.update({ system: nextState });
+  }
+
+  async #addManualAdjustment() {
+    if (!this.#isNegotiationInProgress()) {
+      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.StartFirst"));
+      return;
+    }
+
+    const targetId = this.#resolveNpcId();
+    if (!targetId) { ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NeedNPC")); return; }
+
+    const data = await this.#promptAdjustment();
+    if (!data) return;
+
+    const rules = getRulesProfile(this.document.system?.setup?.rulesProfileId);
+    const { nextState } = addAdjustmentEntry(this.document.system, rules, {
+      actorParticipantId: "",
+      targetNpcParticipantId: targetId,
+      summary: data.summary,
+      detailsGM: "",
+      interestDelta: data.interestDelta,
+      patienceDelta: data.patienceDelta,
+      isRevealedToPlayers: data.isRevealedToPlayers,
+    }, { idFn: () => foundry.utils.randomID() });
+
     await this.document.update({ system: nextState });
   }
 
@@ -494,6 +575,144 @@ export class NegotiationTestSheet extends foundry.applications.api.HandlebarsApp
 
   #cloneNpcState() {
     return foundry.utils.deepClone(this.document.system?.npcStateByParticipantId ?? {});
+  }
+
+  #isNegotiationInProgress() {
+    return (this.document.system?.resolution?.status ?? "notStarted") === "inProgress";
+  }
+
+  async #confirmDialog(title, content) {
+    const DialogV2 = foundry.applications?.api?.DialogV2;
+    if (DialogV2?.confirm) {
+      return !!(await DialogV2.confirm({
+        window: { title },
+        content: `<p>${content}</p>`,
+      }));
+    }
+    if (globalThis.Dialog?.confirm) {
+      return !!(await globalThis.Dialog.confirm({ title, content: `<p>${content}</p>` }));
+    }
+    return false;
+  }
+
+  async #showLegacyFormDialog(title, content, okLabel = game.i18n.localize("NEGOTIATION.Dialog.Common.Confirm")) {
+    if (!globalThis.Dialog) return null;
+
+    return new Promise((resolve) => {
+      let settled = false;
+      const settle = (value) => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
+
+      new globalThis.Dialog({
+        title,
+        content,
+        buttons: {
+          ok: {
+            label: okLabel,
+            callback: (html) => {
+              const root = html?.[0] ?? html;
+              settle(root);
+            },
+          },
+          cancel: {
+            label: game.i18n.localize("NEGOTIATION.Dialog.Common.Cancel"),
+            callback: () => settle(null),
+          },
+        },
+        default: "ok",
+        close: () => settle(null),
+      }).render(true);
+    });
+  }
+
+  async #promptDiscoveryChoice(npcId) {
+    const npcState = this.#cloneNpcState()[npcId] ?? {};
+    const options = [];
+
+    for (const m of _toArray(npcState.motivations)) {
+      if (m?.id && m?.label && !m?.isRevealed) {
+        options.push({ kind: "motivation", id: m.id, label: m.label, text: `Motivation — ${m.label}` });
+      }
+    }
+    for (const p of _toArray(npcState.pitfalls)) {
+      if (p?.id && p?.label && !p?.isRevealed) {
+        options.push({ kind: "pitfall", id: p.id, label: p.label, text: `Pitfall — ${p.label}` });
+      }
+    }
+
+    if (!options.length) {
+      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.NoUnrevealedDetails"));
+      return null;
+    }
+
+    const selectOptions = options
+      .map((opt, idx) => `<option value="${idx}">${foundry.utils.escapeHTML(opt.text)}</option>`)
+      .join("");
+    const root = await this.#showLegacyFormDialog(
+      game.i18n.localize("NEGOTIATION.Dialog.Discovery.Title"),
+      `<form class="neg-dialog-form">
+        <p>${game.i18n.localize("NEGOTIATION.Dialog.Discovery.SelectPrompt")}</p>
+        <div class="form-group">
+          <label>${game.i18n.localize("NEGOTIATION.Dialog.Discovery.RevealedDetail")}</label>
+          <select name="discoveryChoice">${selectOptions}</select>
+        </div>
+      </form>`,
+      game.i18n.localize("NEGOTIATION.Dialog.Discovery.Submit")
+    );
+    if (!root) return null;
+
+    const idx = Number(root.querySelector('[name="discoveryChoice"]')?.value ?? 0);
+    return options[idx] ?? null;
+  }
+
+  async #promptAdjustment() {
+    const root = await this.#showLegacyFormDialog(
+      game.i18n.localize("NEGOTIATION.Dialog.Adjust.Title"),
+      `<form class="neg-dialog-form">
+        <p>${game.i18n.localize("NEGOTIATION.Dialog.Adjust.Description")}</p>
+        <div class="form-group">
+          <label>${game.i18n.localize("NEGOTIATION.Dialog.Adjust.InterestDelta")}</label>
+          <input type="number" name="interestDelta" value="0" step="1" />
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("NEGOTIATION.Dialog.Adjust.PatienceDelta")}</label>
+          <input type="number" name="patienceDelta" value="0" step="1" />
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("NEGOTIATION.Dialog.Adjust.Reason")}</label>
+          <input type="text" name="summary" value="${game.i18n.localize("NEGOTIATION.Dialog.Adjust.DefaultReason")}" />
+        </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" name="isRevealedToPlayers" checked />
+            ${game.i18n.localize("NEGOTIATION.Dialog.Adjust.RevealInPlayerLog")}
+          </label>
+        </div>
+      </form>`,
+      game.i18n.localize("NEGOTIATION.Dialog.Adjust.Submit")
+    );
+    if (!root) return null;
+
+    const interestDelta = Number(root.querySelector('[name="interestDelta"]')?.value ?? 0);
+    const patienceDelta = Number(root.querySelector('[name="patienceDelta"]')?.value ?? 0);
+    const defaultSummary = game.i18n.localize("NEGOTIATION.Dialog.Adjust.DefaultReason");
+    const summary = String(root.querySelector('[name="summary"]')?.value ?? defaultSummary).trim() || defaultSummary;
+    const isRevealedToPlayers = !!root.querySelector('[name="isRevealedToPlayers"]')?.checked;
+
+    if (!Number.isFinite(interestDelta) || !Number.isFinite(patienceDelta)) {
+      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.AdjustmentDeltaNumbers"));
+      return null;
+    }
+
+    if (interestDelta === 0 && patienceDelta === 0) {
+      ui.notifications.warn(game.i18n.localize("NEGOTIATION.Notify.AdjustmentNoDelta"));
+      return null;
+    }
+
+    return { interestDelta, patienceDelta, summary, isRevealedToPlayers };
   }
 
   async #addNpcMotivation() {

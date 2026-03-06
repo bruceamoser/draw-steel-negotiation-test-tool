@@ -230,6 +230,12 @@
   filter: brightness(1.1);
 }
 
+.negotiation-sheet .neg-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: none;
+}
+
 .negotiation-sheet .neg-btn--primary {
   background: var(--color-bg-btn, #3d6b9e);
   color: #fff;
@@ -529,6 +535,11 @@
   font-size: 11px;
   color: var(--color-text-secondary, #777);
   font-style: italic;
+}
+
+.negotiation-sheet .neg-log-entry-summary {
+  margin-top: 3px;
+  font-size: 12px;
 }
 
 /* ── Chat card (posted to chat log) ─────────────────────── */

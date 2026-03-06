@@ -79,10 +79,40 @@
       "ManualTotal": "Manual total",
       "FoundryRoll": "Foundry roll"
     },
+    "Dialog": {
+      "Common": {
+        "Confirm": "Confirm",
+        "Cancel": "Cancel"
+      },
+      "Resolve": {
+        "Title": "Resolve Negotiation",
+        "Confirm": "Are you sure you want to resolve this negotiation now?"
+      },
+      "Discovery": {
+        "Title": "Discovery Success",
+        "SelectPrompt": "Select what the PCs discovered:",
+        "RevealedDetail": "Revealed Detail",
+        "Submit": "Add Discovery"
+      },
+      "Adjust": {
+        "Title": "Manual Interest/Patience Adjustment",
+        "Description": "Apply outside effects to the current NPC.",
+        "InterestDelta": "Interest Delta",
+        "PatienceDelta": "Patience Delta",
+        "Reason": "Reason (shown in action log)",
+        "DefaultReason": "Manual adjustment",
+        "RevealInPlayerLog": "Reveal in player action log",
+        "Submit": "Apply"
+      }
+    },
     "Notify": {
       "OnlyGM": "Only the GM can do that.",
       "NeedNPC": "Add an NPC participant first.",
       "NeedPC": "Add a PC participant first.",
+      "StartFirst": "Start the negotiation first.",
+      "NoUnrevealedDetails": "No unrevealed motivations or pitfalls are available to reveal.",
+      "AdjustmentDeltaNumbers": "Interest and patience deltas must be numbers.",
+      "AdjustmentNoDelta": "Set an interest or patience delta before applying an adjustment.",
       "OnlyOneNPC": "Only one NPC participant is allowed.",
       "Created": "Created Negotiation Test: {name}",
       "Posted": "Posted to chat."

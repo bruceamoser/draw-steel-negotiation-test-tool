@@ -8,7 +8,9 @@
 
   <nav class="tabs" data-group="primary">
     <a class="item" data-tab="overview">Overview</a>
+    {{#if isGM}}
     <a class="item" data-tab="outcomes">Outcomes</a>
+    {{/if}}
     <a class="item" data-tab="participants">Participants</a>
     <a class="item" data-tab="npc">NPC Profile</a>
     <a class="item" data-tab="actions">Actions</a>
@@ -35,6 +37,7 @@
     {{!-- ================================================================
          OUTCOMES
          ================================================================ --}}
+    {{#if isGM}}
     <div class="tab" data-group="primary" data-tab="outcomes">
       <div class="neg-outcomes-layout">
 
@@ -61,6 +64,7 @@
 
       </div>
     </div>
+    {{/if}}
 
     {{!-- ================================================================
          PARTICIPANTS
@@ -318,6 +322,9 @@
             <button type="button" class="neg-btn" data-action="resolveNegotiation">
               <i class="fa-solid fa-flag-checkered"></i> Resolve
             </button>
+            <button type="button" class="neg-btn" data-action="addManualAdjustment">
+              <i class="fa-solid fa-sliders"></i> Adjust Stats
+            </button>
             <button type="button" class="neg-btn" data-action="copySummary">
               <i class="fa-solid fa-copy"></i> Copy Summary
             </button>
@@ -369,7 +376,8 @@
               <label class="neg-checkbox-label">
                 <input type="checkbox" data-key="neg-arg-reveal" /> Reveal to players
               </label>
-              <button type="button" class="neg-btn neg-btn--primary" data-action="addArgumentEntry">
+              <button type="button" class="neg-btn neg-btn--primary" data-action="addArgumentEntry"
+                {{#unless isInProgress}}disabled{{/unless}}>
                 <i class="fa-solid fa-plus"></i> Add Argument
               </button>
             </div>
@@ -399,7 +407,8 @@
                 <input type="checkbox" data-key="neg-reveal-to-players" />
                 Reveal discovered detail to players
               </label>
-              <button type="button" class="neg-btn neg-btn--primary" data-action="addRevealEntry">
+              <button type="button" class="neg-btn neg-btn--primary" data-action="addRevealEntry"
+                {{#unless isInProgress}}disabled{{/unless}}>
                 <i class="fa-solid fa-search"></i> Add Discovery
               </button>
             </div>
@@ -430,6 +439,9 @@
                   <span class="neg-log-effects">→ {{this.effectsText}}</span>
                   {{/if}}
                 </div>
+                {{#if this.summary}}
+                <div class="neg-log-entry-summary">{{this.summary}}</div>
+                {{/if}}
               </div>
               {{else}}
               <p class="neg-empty">No entries yet.</p>
@@ -459,6 +471,9 @@
             {{#if this.rollTier}}<span class="neg-tier-badge">T{{this.rollTier}}</span>{{/if}}
             {{#if this.effectsText}}<span class="neg-log-effects">→ {{this.effectsText}}</span>{{/if}}
           </div>
+          {{#if this.summary}}
+          <div class="neg-log-entry-summary">{{this.summary}}</div>
+          {{/if}}
         </div>
         {{/if}}
         {{/each}}
